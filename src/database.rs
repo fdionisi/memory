@@ -4,7 +4,10 @@ use anyhow::{anyhow, Result};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-use crate::{message::Message, thread::Thread};
+use crate::{
+    message::{CreateMessage, Message},
+    thread::Thread,
+};
 
 #[derive(Clone)]
 pub struct Database {
@@ -27,14 +30,14 @@ impl Database {
         thread
     }
 
-    pub async fn create_message(&self, thread_id: Uuid) -> Result<Message> {
+    pub async fn create_message(&self, thread_id: Uuid, input: CreateMessage) -> Result<Message> {
         self.threads
             .lock()
             .await
             .get(&thread_id)
             .ok_or_else(|| anyhow!("thread not found"))?;
 
-        let message = Message::new(thread_id);
+        let message = input.into_message(thread_id);
         let mut messages = self.messages.lock().await;
         messages.insert(message.id(), message.clone());
         Ok(message)

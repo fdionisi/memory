@@ -8,7 +8,7 @@ use axum::{
 use tower_http::trace::TraceLayer;
 use uuid::Uuid;
 
-use crate::database::Database;
+use crate::{database::Database, message::CreateMessage};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -39,8 +39,12 @@ async fn create_thread(State(db): State<Database>) -> (StatusCode, Json<serde_js
     )
 }
 
-async fn create_message(State(db): State<Database>, Path(thread_id): Path<Uuid>) -> Response {
-    match db.create_message(thread_id).await {
+async fn create_message(
+    State(db): State<Database>,
+    Path(thread_id): Path<Uuid>,
+    Json(create_message): Json<CreateMessage>,
+) -> Response {
+    match db.create_message(thread_id, create_message).await {
         Ok(message) => (StatusCode::CREATED, Json(message)).into_response(),
         Err(_) => (
             StatusCode::NOT_FOUND,
