@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use axum::{extract::State, http::StatusCode, response::Json, routing::post, Router};
 use serde::{Deserialize, Serialize};
@@ -6,6 +6,26 @@ use tokio::sync::Mutex;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use uuid::Uuid;
+
+#[derive(Clone)]
+struct Database {
+    threads: Arc<Mutex<HashMap<Uuid, Thread>>>,
+}
+
+impl Database {
+    fn new() -> Self {
+        Self {
+            threads: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    async fn create_thread(&self) -> Thread {
+        let thread = Thread::new();
+        let mut threads = self.threads.lock().await;
+        threads.insert(thread.id(), thread.clone());
+        thread
+    }
+}
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Thread {
@@ -45,15 +65,12 @@ async fn main() {
 
 #[derive(Clone)]
 struct AppState {
-    threads: Arc<Mutex<Vec<Thread>>>,
+    db: Database,
 }
 
 async fn create_thread(State(state): State<AppState>) -> (StatusCode, Json<serde_json::Value>) {
-    let thread = Thread::new();
+    let thread = state.db.create_thread().await;
     let thread_id = thread.id();
-
-    let mut threads = state.threads.lock().await;
-    threads.push(thread);
 
     (
         StatusCode::CREATED,
@@ -63,7 +80,7 @@ async fn create_thread(State(state): State<AppState>) -> (StatusCode, Json<serde
 
 fn app() -> Router {
     let state = AppState {
-        threads: Arc::new(Mutex::new(Vec::new())),
+        db: Database::new(),
     };
 
     Router::new()
@@ -79,9 +96,9 @@ mod tests {
         body::Body,
         http::{self, Request, StatusCode},
     };
-    use http_body_util::BodyExt; // for `collect`
+    use http_body_util::BodyExt;
     use serde_json::Value;
-    use tower::ServiceExt; // for `call`, `oneshot`, and `ready`
+    use tower::ServiceExt;
 
     #[tokio::test]
     async fn create_thread() {
