@@ -1,5 +1,6 @@
 mod app_state;
 mod database;
+mod message;
 mod thread;
 
 use app_state::AppState;
@@ -31,7 +32,7 @@ mod tests {
     };
     use http_body_util::BodyExt;
     use serde_json::Value;
-    use tower::ServiceExt;
+    use tower::{Service, ServiceExt};
     use uuid::Uuid;
 
     use super::*;
@@ -67,6 +68,106 @@ mod tests {
         assert!(
             Uuid::parse_str(id_str).is_ok(),
             "The 'id' should be a valid UUID"
+        );
+    }
+
+    #[tokio::test]
+    async fn create_message() {
+        let mut app = AppState::router();
+
+        let thread_response = app
+            .call(
+                Request::builder()
+                    .method(http::Method::POST)
+                    .uri("/threads")
+                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(thread_response.status(), StatusCode::CREATED);
+
+        let thread_body = thread_response
+            .into_body()
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes();
+        let thread_body: Value = serde_json::from_slice(&thread_body).unwrap();
+        let thread_id = thread_body["id"].as_str().unwrap();
+
+        let message_response = app
+            .oneshot(
+                Request::builder()
+                    .method(http::Method::POST)
+                    .uri(format!("/threads/{thread_id}/messages"))
+                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                    .body(Body::from(r#"{"content": "Test message"}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(message_response.status(), StatusCode::CREATED);
+
+        let message_body = message_response
+            .into_body()
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes();
+        let message_body: Value = serde_json::from_slice(&message_body).unwrap();
+
+        assert_eq!(
+            message_body["thread_id"], thread_id,
+            "Thread ID in message response should match the created thread ID"
+        );
+        assert!(
+            message_body.get("id").is_some(),
+            "Message response should contain an 'id' field"
+        );
+        assert!(
+            message_body["id"].is_string(),
+            "The message 'id' field should be a string"
+        );
+        assert!(
+            Uuid::parse_str(message_body["id"].as_str().unwrap()).is_ok(),
+            "The message 'id' should be a valid UUID"
+        );
+    }
+
+    #[tokio::test]
+    async fn submit_message_to_nonexistent_thread() {
+        let app = AppState::router();
+
+        let non_existent_thread_id = Uuid::new_v4();
+        let message_response = app
+            .oneshot(
+                Request::builder()
+                    .method(http::Method::POST)
+                    .uri(format!("/threads/{non_existent_thread_id}/messages"))
+                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                    .body(Body::from(r#"{"content": "Test message"}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(message_response.status(), StatusCode::NOT_FOUND);
+
+        let message_body = message_response
+            .into_body()
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes();
+        let message_body: Value = serde_json::from_slice(&message_body).unwrap();
+
+        assert_eq!(
+            message_body["error"], "thread not found",
+            "Response should indicate that the thread was not found"
         );
     }
 }
