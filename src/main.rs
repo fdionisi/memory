@@ -355,4 +355,105 @@ mod tests {
             "Image URL should match the sent URL"
         );
     }
+
+    #[tokio::test]
+    async fn update_message() {
+        let mut app = AppState::router();
+
+        // Create a thread
+        let thread_response = app
+            .call(
+                Request::builder()
+                    .method(http::Method::POST)
+                    .uri("/threads")
+                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(thread_response.status(), StatusCode::CREATED);
+        let thread_body: Value = serde_json::from_slice(
+            &thread_response
+                .into_body()
+                .collect()
+                .await
+                .unwrap()
+                .to_bytes(),
+        )
+        .unwrap();
+        let thread_id = thread_body["id"].as_str().unwrap();
+
+        // Create a message
+        let create_message_response = app
+            .call(
+                Request::builder()
+                    .method(http::Method::POST)
+                    .uri(format!("/threads/{thread_id}/messages"))
+                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                    .body(Body::from(r#"{"content": "Original message"}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(create_message_response.status(), StatusCode::CREATED);
+        let create_message_body: Value = serde_json::from_slice(
+            &create_message_response
+                .into_body()
+                .collect()
+                .await
+                .unwrap()
+                .to_bytes(),
+        )
+        .unwrap();
+        let message_id = create_message_body["id"].as_str().unwrap();
+
+        // Update the message
+        let update_message_response = app
+            .call(
+                Request::builder()
+                    .method(http::Method::PUT)
+                    .uri(format!("/threads/{thread_id}/messages/{message_id}"))
+                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                    .body(Body::from(r#"{"content": "Updated message"}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(update_message_response.status(), StatusCode::OK);
+        let update_message_body: Value = serde_json::from_slice(
+            &update_message_response
+                .into_body()
+                .collect()
+                .await
+                .unwrap()
+                .to_bytes(),
+        )
+        .unwrap();
+
+        assert_eq!(update_message_body["id"], message_id);
+        assert_eq!(update_message_body["thread_id"], thread_id);
+        assert_eq!(update_message_body["content"]["text"], "Updated message");
+
+        // Try to update a non-existent message
+        let non_existent_message_id = Uuid::new_v4();
+        let non_existent_update_response = app
+            .oneshot(
+                Request::builder()
+                    .method(http::Method::PUT)
+                    .uri(format!(
+                        "/threads/{thread_id}/messages/{non_existent_message_id}"
+                    ))
+                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                    .body(Body::from(r#"{"content": "This should fail"}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(non_existent_update_response.status(), StatusCode::NOT_FOUND);
+    }
 }

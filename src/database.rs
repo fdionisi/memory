@@ -5,7 +5,7 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::{
-    message::{CreateMessage, Message},
+    message::{CreateMessage, Message, UpdateMessage},
     thread::Thread,
 };
 
@@ -41,5 +41,26 @@ impl Database {
         let mut messages = self.messages.lock().await;
         messages.insert(message.id(), message.clone());
         Ok(message)
+    }
+
+    pub async fn update_message(
+        &self,
+        thread_id: Uuid,
+        message_id: Uuid,
+        content: UpdateMessage,
+    ) -> Result<Message> {
+        self.threads
+            .lock()
+            .await
+            .get(&thread_id)
+            .ok_or_else(|| anyhow!("thread not found"))?;
+
+        let mut messages = self.messages.lock().await;
+        let message = messages
+            .get_mut(&message_id)
+            .ok_or_else(|| anyhow!("message not found"))?;
+
+        message.update_content(content);
+        Ok(message.clone())
     }
 }

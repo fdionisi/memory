@@ -72,6 +72,10 @@ impl Message {
     pub fn id(&self) -> Uuid {
         self.id
     }
+
+    pub fn update_content(&mut self, new_content: UpdateMessage) {
+        self.content = new_content.content;
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -87,4 +91,9 @@ impl CreateMessage {
             content: self.content,
         }
     }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct UpdateMessage {
+    content: Content,
 }

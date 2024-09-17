@@ -4,3 +4,5 @@ A database system optimised for the storage of threds of conversations amonst us
 
 Key features:
 - RESTFul API interfaces.
+- Create new threads.
+- Add and update messages to threads.

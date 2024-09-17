@@ -2,13 +2,41 @@ use axum::{
     extract::{FromRef, Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},
-    routing::post,
+    routing::{post, put},
     Json, Router,
 };
 use tower_http::trace::TraceLayer;
 use uuid::Uuid;
 
-use crate::{database::Database, message::CreateMessage};
+use crate::{
+    database::Database,
+    message::{CreateMessage, UpdateMessage},
+};
+
+async fn update_message(
+    State(db): State<Database>,
+    Path((thread_id, message_id)): Path<(Uuid, Uuid)>,
+    Json(update_message): Json<UpdateMessage>,
+) -> Response {
+    match db
+        .update_message(thread_id, message_id, update_message)
+        .await
+    {
+        Ok(message) => (StatusCode::OK, Json(message)).into_response(),
+        Err(e) => match e.to_string().as_str() {
+            "thread not found" | "message not found" => (
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({ "error": e.to_string() })),
+            )
+                .into_response(),
+            _ => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": "internal server error" })),
+            )
+                .into_response(),
+        },
+    }
+}
 
 #[derive(Clone)]
 pub struct AppState {
@@ -24,6 +52,10 @@ impl AppState {
         Router::new()
             .route("/threads", post(create_thread))
             .route("/threads/:id/messages", post(create_message))
+            .route(
+                "/threads/:thread_id/messages/:message_id",
+                put(update_message),
+            )
             .with_state(state)
             .layer(TraceLayer::new_for_http())
     }
