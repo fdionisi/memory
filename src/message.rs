@@ -61,11 +61,15 @@ impl<'de> Deserialize<'de> for Content {
     }
 }
 
+use chrono::{DateTime, Utc};
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Message {
     id: Uuid,
     thread_id: Uuid,
     content: Content,
+    #[serde(with = "chrono::serde::ts_milliseconds")]
+    created_at: DateTime<Utc>,
 }
 
 impl Message {
@@ -76,8 +80,11 @@ impl Message {
     pub fn update_content(&mut self, new_content: UpdateMessage) {
         self.content = new_content.content;
     }
-}
 
+    pub fn created_at(&self) -> DateTime<Utc> {
+        self.created_at
+    }
+}
 #[derive(Serialize, Deserialize)]
 pub struct CreateMessage {
     content: Content,
@@ -89,6 +96,7 @@ impl CreateMessage {
             id: Uuid::new_v4(),
             thread_id,
             content: self.content,
+            created_at: Utc::now(),
         }
     }
 }

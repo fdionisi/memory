@@ -26,10 +26,13 @@ async fn main() {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use axum::{
         body::Body,
         http::{self, Request, StatusCode},
     };
+    use chrono::DateTime;
     use http_body_util::BodyExt;
     use serde_json::Value;
     use tower::{Service, ServiceExt};
@@ -455,5 +458,427 @@ mod tests {
             .unwrap();
 
         assert_eq!(non_existent_update_response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn list_threads() {
+        let mut app = AppState::router();
+
+        // Create multiple threads
+        let thread_count = 3;
+        let mut thread_ids = Vec::new();
+
+        for _ in 0..thread_count {
+            let response = app
+                .call(
+                    Request::builder()
+                        .method(http::Method::POST)
+                        .uri("/threads")
+                        .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+
+            assert_eq!(response.status(), StatusCode::CREATED);
+            let body: Value =
+                serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes())
+                    .unwrap();
+            thread_ids.push(body["id"].as_str().unwrap().to_string());
+        }
+
+        // List threads
+        let list_response = app
+            .call(
+                Request::builder()
+                    .method(http::Method::GET)
+                    .uri("/threads")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(list_response.status(), StatusCode::OK);
+        let list_body: Value = serde_json::from_slice(
+            &list_response
+                .into_body()
+                .collect()
+                .await
+                .unwrap()
+                .to_bytes(),
+        )
+        .unwrap();
+
+        assert!(list_body.is_array());
+        let threads = list_body.as_array().unwrap();
+        assert_eq!(threads.len(), thread_count);
+
+        // Verify all created thread IDs are in the list
+        for thread in threads {
+            assert!(thread_ids.contains(&thread["id"].as_str().unwrap().to_string()));
+        }
+    }
+
+    #[tokio::test]
+    async fn delete_thread() {
+        let mut app = AppState::router();
+
+        // Create a thread
+        let create_thread_response = app
+            .call(
+                Request::builder()
+                    .method(http::Method::POST)
+                    .uri("/threads")
+                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(create_thread_response.status(), StatusCode::CREATED);
+        let thread_body: Value = serde_json::from_slice(
+            &create_thread_response
+                .into_body()
+                .collect()
+                .await
+                .unwrap()
+                .to_bytes(),
+        )
+        .unwrap();
+        let thread_id = thread_body["id"].as_str().unwrap();
+
+        // Create messages in the thread
+        for _ in 0..3 {
+            let create_message_response = app
+                .call(
+                    Request::builder()
+                        .method(http::Method::POST)
+                        .uri(format!("/threads/{thread_id}/messages"))
+                        .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                        .body(Body::from(r#"{"content": "Test message"}"#))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+
+            assert_eq!(create_message_response.status(), StatusCode::CREATED);
+        }
+
+        // Delete the thread
+        let delete_thread_response = app
+            .call(
+                Request::builder()
+                    .method(http::Method::DELETE)
+                    .uri(format!("/threads/{thread_id}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(delete_thread_response.status(), StatusCode::NO_CONTENT);
+
+        // Attempt to get the deleted thread (should fail)
+        let get_deleted_thread_response = app
+            .call(
+                Request::builder()
+                    .method(http::Method::GET)
+                    .uri(format!("/threads/{thread_id}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(get_deleted_thread_response.status(), StatusCode::NOT_FOUND);
+
+        // Attempt to create a message in the deleted thread (should fail)
+        let create_message_in_deleted_thread_response = app
+            .call(
+                Request::builder()
+                    .method(http::Method::POST)
+                    .uri(format!("/threads/{thread_id}/messages"))
+                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                    .body(Body::from(r#"{"content": "This should fail"}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            create_message_in_deleted_thread_response.status(),
+            StatusCode::NOT_FOUND
+        );
+    }
+
+    #[tokio::test]
+    async fn get_thread() {
+        let mut app = AppState::router();
+
+        // Create a thread
+        let create_thread_response = app
+            .call(
+                Request::builder()
+                    .method(http::Method::POST)
+                    .uri("/threads")
+                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(create_thread_response.status(), StatusCode::CREATED);
+        let create_thread_body: Value = serde_json::from_slice(
+            &create_thread_response
+                .into_body()
+                .collect()
+                .await
+                .unwrap()
+                .to_bytes(),
+        )
+        .unwrap();
+        let thread_id = create_thread_body["id"].as_str().unwrap();
+
+        // Get the created thread
+        let get_thread_response = app
+            .call(
+                Request::builder()
+                    .method(http::Method::GET)
+                    .uri(format!("/threads/{thread_id}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(get_thread_response.status(), StatusCode::OK);
+        let get_thread_body: Value = serde_json::from_slice(
+            &get_thread_response
+                .into_body()
+                .collect()
+                .await
+                .unwrap()
+                .to_bytes(),
+        )
+        .unwrap();
+
+        assert_eq!(get_thread_body["id"], thread_id);
+
+        // Attempt to get a non-existent thread
+        let non_existent_thread_id = Uuid::new_v4();
+        let get_non_existent_thread_response = app
+            .call(
+                Request::builder()
+                    .method(http::Method::GET)
+                    .uri(format!("/threads/{non_existent_thread_id}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            get_non_existent_thread_response.status(),
+            StatusCode::NOT_FOUND
+        );
+    }
+    #[tokio::test]
+    async fn get_thread_messages() {
+        let mut app = AppState::router();
+
+        // Create a thread
+        let create_thread_response = app
+            .call(
+                Request::builder()
+                    .method(http::Method::POST)
+                    .uri("/threads")
+                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(create_thread_response.status(), StatusCode::CREATED);
+        let create_thread_body: Value = serde_json::from_slice(
+            &create_thread_response
+                .into_body()
+                .collect()
+                .await
+                .unwrap()
+                .to_bytes(),
+        )
+        .unwrap();
+        let thread_id = create_thread_body["id"].as_str().unwrap();
+
+        // Create multiple messages in the thread
+        let message_contents = vec!["First message", "Second message", "Third message"];
+        for content in &message_contents {
+            let create_message_response = app
+                .call(
+                    Request::builder()
+                        .method(http::Method::POST)
+                        .uri(format!("/threads/{thread_id}/messages"))
+                        .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                        .body(Body::from(format!(r#"{{"content": "{}"}}"#, content)))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+
+            assert_eq!(create_message_response.status(), StatusCode::CREATED);
+
+            // Add a small delay to ensure different created_at times
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+
+        // Get the thread messages
+        let get_messages_response = app
+            .call(
+                Request::builder()
+                    .method(http::Method::GET)
+                    .uri(format!("/threads/{thread_id}/messages"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(get_messages_response.status(), StatusCode::OK);
+        let get_messages_body: Value = serde_json::from_slice(
+            &get_messages_response
+                .into_body()
+                .collect()
+                .await
+                .unwrap()
+                .to_bytes(),
+        )
+        .unwrap();
+
+        let messages = get_messages_body.as_array().unwrap();
+        assert_eq!(messages.len(), message_contents.len());
+
+        // Verify messages are in order
+        for (i, message) in messages.iter().enumerate() {
+            assert_eq!(message["content"]["text"], message_contents[i]);
+            if i > 0 {
+                let prev_created_at = DateTime::from_timestamp_millis(
+                    messages[i - 1]["created_at"].as_i64().unwrap(),
+                )
+                .unwrap();
+                let current_created_at =
+                    DateTime::from_timestamp_millis(message["created_at"].as_i64().unwrap())
+                        .unwrap();
+                assert!(
+                    current_created_at > prev_created_at,
+                    "Messages are not in correct order"
+                );
+            }
+        }
+
+        // Attempt to get messages for a non-existent thread
+        let non_existent_thread_id = Uuid::new_v4();
+        let get_non_existent_thread_messages_response = app
+            .call(
+                Request::builder()
+                    .method(http::Method::GET)
+                    .uri(format!("/threads/{non_existent_thread_id}/messages"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            get_non_existent_thread_messages_response.status(),
+            StatusCode::NOT_FOUND
+        );
+    }
+
+    #[tokio::test]
+    async fn delete_message() {
+        let mut app = AppState::router();
+
+        // Create a thread
+        let thread_response = app
+            .call(
+                Request::builder()
+                    .method(http::Method::POST)
+                    .uri("/threads")
+                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(thread_response.status(), StatusCode::CREATED);
+        let thread_body: Value = serde_json::from_slice(
+            &thread_response
+                .into_body()
+                .collect()
+                .await
+                .unwrap()
+                .to_bytes(),
+        )
+        .unwrap();
+        let thread_id = thread_body["id"].as_str().unwrap();
+
+        // Create a message
+        let create_message_response = app
+            .call(
+                Request::builder()
+                    .method(http::Method::POST)
+                    .uri(format!("/threads/{thread_id}/messages"))
+                    .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+                    .body(Body::from(r#"{"content": "Test message"}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(create_message_response.status(), StatusCode::CREATED);
+        let create_message_body: Value = serde_json::from_slice(
+            &create_message_response
+                .into_body()
+                .collect()
+                .await
+                .unwrap()
+                .to_bytes(),
+        )
+        .unwrap();
+        let message_id = create_message_body["id"].as_str().unwrap();
+
+        // Delete the message
+        let delete_message_response = app
+            .call(
+                Request::builder()
+                    .method(http::Method::DELETE)
+                    .uri(format!("/threads/{thread_id}/messages/{message_id}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(delete_message_response.status(), StatusCode::NO_CONTENT);
+
+        // Try to delete the same message again (should fail)
+        let delete_nonexistent_response = app
+            .call(
+                Request::builder()
+                    .method(http::Method::DELETE)
+                    .uri(format!("/threads/{thread_id}/messages/{message_id}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(delete_nonexistent_response.status(), StatusCode::NOT_FOUND);
     }
 }
