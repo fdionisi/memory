@@ -1,9 +1,11 @@
+mod api;
 mod app_state;
 mod database;
-mod message;
-mod thread;
+mod domain;
+mod utils;
 
 use app_state::AppState;
+use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
@@ -17,11 +19,18 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
+    let app_state = AppState::new();
+
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
         .await
         .unwrap();
     tracing::debug!("listening on {}", listener.local_addr().unwrap());
-    axum::serve(listener, AppState::router()).await.unwrap();
+    axum::serve(
+        listener,
+        api::routes::router(app_state).layer(TraceLayer::new_for_http()),
+    )
+    .await
+    .unwrap();
 }
 
 #[cfg(test)]
@@ -42,7 +51,8 @@ mod tests {
 
     #[tokio::test]
     async fn create_thread() {
-        let app = AppState::router();
+        let app_state = AppState::new();
+        let app = api::routes::router(app_state);
 
         let response = app
             .oneshot(
@@ -76,7 +86,8 @@ mod tests {
 
     #[tokio::test]
     async fn create_message() {
-        let mut app = AppState::router();
+        let app_state = AppState::new();
+        let mut app = api::routes::router(app_state);
 
         let thread_response = app
             .call(
@@ -149,7 +160,8 @@ mod tests {
 
     #[tokio::test]
     async fn submit_message_to_nonexistent_thread() {
-        let app = AppState::router();
+        let app_state = AppState::new();
+        let app = api::routes::router(app_state);
 
         let non_existent_thread_id = Uuid::new_v4();
         let message_response = app
@@ -182,7 +194,8 @@ mod tests {
 
     #[tokio::test]
     async fn submit_message_with_string_vec_content() {
-        let mut app = AppState::router();
+        let app_state = AppState::new();
+        let mut app = api::routes::router(app_state);
 
         let thread_response = app
             .call(
@@ -263,7 +276,8 @@ mod tests {
 
     #[tokio::test]
     async fn submit_message_with_text_and_image_content() {
-        let mut app = AppState::router();
+        let app_state = AppState::new();
+        let mut app = api::routes::router(app_state);
 
         let thread_response = app
             .call(
@@ -359,7 +373,8 @@ mod tests {
 
     #[tokio::test]
     async fn update_message() {
-        let mut app = AppState::router();
+        let app_state = AppState::new();
+        let mut app = api::routes::router(app_state);
 
         // Create a thread
         let thread_response = app
@@ -460,7 +475,8 @@ mod tests {
 
     #[tokio::test]
     async fn list_threads() {
-        let mut app = AppState::router();
+        let app_state = AppState::new();
+        let mut app = api::routes::router(app_state);
 
         // Create multiple threads
         let thread_count = 3;
@@ -521,7 +537,8 @@ mod tests {
 
     #[tokio::test]
     async fn delete_thread() {
-        let mut app = AppState::router();
+        let app_state = AppState::new();
+        let mut app = api::routes::router(app_state);
 
         // Create a thread
         let create_thread_response = app
@@ -614,7 +631,8 @@ mod tests {
 
     #[tokio::test]
     async fn get_thread() {
-        let mut app = AppState::router();
+        let app_state = AppState::new();
+        let mut app = api::routes::router(app_state);
 
         // Create a thread
         let create_thread_response = app
@@ -687,7 +705,8 @@ mod tests {
 
     #[tokio::test]
     async fn get_thread_messages() {
-        let mut app = AppState::router();
+        let app_state = AppState::new();
+        let mut app = api::routes::router(app_state);
 
         // Create a thread
         let create_thread_response = app
@@ -821,7 +840,8 @@ mod tests {
 
     #[tokio::test]
     async fn delete_message() {
-        let mut app = AppState::router();
+        let app_state = AppState::new();
+        let mut app = api::routes::router(app_state);
 
         // Create a thread
         let thread_response = app

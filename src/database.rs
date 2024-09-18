@@ -8,7 +8,7 @@ use ferrochain::embedding::Embedding;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-use crate::{
+use crate::domain::{
     message::{
         CreateMessage, Message, MessageWithEmbedding, ThreadMessagesResponse, UpdateMessage,
     },
