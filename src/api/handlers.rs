@@ -38,19 +38,32 @@ pub struct SearchRequest {
     pub thread_ids: Vec<Uuid>,
 }
 
-pub async fn create_thread(State(db): State<Arc<dyn Db>>) -> (StatusCode, Json<serde_json::Value>) {
-    let thread = db.create_thread().await;
-    let thread_id = thread.id();
-
-    (
-        StatusCode::CREATED,
-        Json(serde_json::json!({ "id": thread_id })),
-    )
+pub async fn create_thread(State(db): State<Arc<dyn Db>>) -> Result<impl IntoResponse, StatusCode> {
+    tracing::info!("Attempting to create a new thread");
+    match db.create_thread().await {
+        Ok(thread) => {
+            tracing::info!("Thread created successfully: {:?}", thread);
+            Ok((StatusCode::CREATED, Json(thread)))
+        }
+        Err(e) => {
+            tracing::error!("Failed to create thread: {:?}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
 }
 
-pub async fn list_threads(State(db): State<Arc<dyn Db>>) -> Json<Vec<Thread>> {
-    let threads = db.list_threads().await;
-    Json(threads)
+pub async fn list_threads(State(db): State<Arc<dyn Db>>) -> Result<Json<Vec<Thread>>, StatusCode> {
+    tracing::info!("Attempting to list threads");
+    match db.list_threads().await {
+        Ok(threads) => {
+            tracing::info!("Successfully retrieved {} threads", threads.len());
+            Ok(Json(threads))
+        }
+        Err(e) => {
+            tracing::error!("Failed to list threads: {:?}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
 }
 
 pub async fn get_thread(
@@ -111,6 +124,7 @@ pub async fn create_message(
                             return;
                         }
                     };
+
                     let summary = match generate_summary(
                         completion,
                         thread.summary.unwrap_or_default(),
@@ -157,15 +171,15 @@ pub async fn update_message(
     Path((thread_id, message_id)): Path<(Uuid, Uuid)>,
     Json(update_message): Json<UpdateMessage>,
 ) -> Response {
-    match db
-        .update_message(thread_id, message_id, update_message)
-        .await
-    {
-        Ok(message) => (StatusCode::OK, Json(message)).into_response(),
-        Err(e) => match e.to_string().as_str() {
+    match dbg!(
+        db.update_message(dbg!(thread_id), dbg!(message_id), dbg!(update_message))
+            .await
+    ) {
+        Ok(message) => (StatusCode::OK, Json(dbg!(message))).into_response(),
+        Err(e) => match dbg!(e.to_string().as_str()) {
             "thread not found" | "message not found" => (
                 StatusCode::NOT_FOUND,
-                Json(serde_json::json!({ "error": e.to_string() })),
+                Json(serde_json::json!({ "error": dbg!(e.to_string()) })),
             )
                 .into_response(),
             _ => (
@@ -183,10 +197,13 @@ pub async fn delete_message(
 ) -> StatusCode {
     match db.delete_message(thread_id, message_id).await {
         Ok(_) => StatusCode::NO_CONTENT,
-        Err(e) => match e.to_string().as_str() {
-            "thread not found" | "message not found" => StatusCode::NOT_FOUND,
-            _ => StatusCode::INTERNAL_SERVER_ERROR,
-        },
+        Err(e) => {
+            dbg!(&e);
+            match e.to_string().as_str() {
+                "thread not found" | "message not found" => StatusCode::NOT_FOUND,
+                _ => StatusCode::INTERNAL_SERVER_ERROR,
+            }
+        }
     }
 }
 
@@ -197,6 +214,22 @@ pub async fn delete_thread(
     match db.delete_thread(thread_id).await {
         Ok(_) => StatusCode::NO_CONTENT,
         Err(_) => StatusCode::NOT_FOUND,
+    }
+}
+
+pub async fn debug_database_state(
+    State(db): State<Arc<dyn Db>>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    tracing::info!("Debugging database state");
+    match db.debug_state().await {
+        Ok(state) => {
+            tracing::info!("Database state retrieved successfully");
+            Ok(Json(state))
+        }
+        Err(e) => {
+            tracing::error!("Failed to retrieve database state: {:?}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
     }
 }
 

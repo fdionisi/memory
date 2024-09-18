@@ -22,5 +22,8 @@ pub fn router(app_state: AppState) -> Router {
             delete(handlers::delete_message),
         )
         .route("/search", post(handlers::search_threads))
+        .route("/debug/database", get(handlers::debug_database_state))
+        // This route was added for debugging purposes and should be removed in production
+        .route("/debug/database-state", get(handlers::debug_database_state))
         .with_state(app_state)
 }

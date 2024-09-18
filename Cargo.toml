@@ -7,9 +7,10 @@ edition = "2021"
 anyhow = "1.0.87"
 axum = "0.7.5"
 chrono = { version = "0.4", features = ["serde"] }
-ferrochain = { git = "https://github.com/fdionisi/ferrochain", rev = "e1799950d7333645edb3fa6f54a9883d401abdb5" }
-ferrochain-anthropic-completion = { git = "https://github.com/fdionisi/ferrochain", rev = "e1799950d7333645edb3fa6f54a9883d401abdb5" }
-ferrochain-voyageai-embedder = { git = "https://github.com/fdionisi/ferrochain", rev = "e1799950d7333645edb3fa6f54a9883d401abdb5" }
+ferrochain = { git = "https://github.com/fdionisi/ferrochain", rev = "52adae995ed13395f5e02e9d06be34465a59a306" }
+ferrochain-anthropic-completion = { git = "https://github.com/fdionisi/ferrochain", rev = "52adae995ed13395f5e02e9d06be34465a59a306" }
+ferrochain-voyageai-embedder = { git = "https://github.com/fdionisi/ferrochain", rev = "52adae995ed13395f5e02e9d06be34465a59a306" }
+heed = "0.20.5"
 indoc = "2.0.5"
 serde = { version = "1.0.210", features = ["derive"] }
 serde_json = "1.0"

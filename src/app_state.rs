@@ -1,11 +1,11 @@
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
 
 use axum::extract::FromRef;
 use ferrochain::{completion::Completion, embedding::Embedder};
 use ferrochain_anthropic_completion::AnthropicCompletion;
 use ferrochain_voyageai_embedder::{EmbeddingInputType, EmbeddingModel, VoyageAiEmbedder};
 
-use crate::database::{Db, InMemory};
+use crate::database::{Db, Heed};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -17,8 +17,10 @@ pub struct AppState {
 
 impl AppState {
     pub fn new() -> Self {
+        let path = Path::new("target").join("heed.mdb");
+
         Self {
-            db: Arc::new(InMemory::new()),
+            db: Arc::new(Heed::new(&path, true).unwrap()),
             completion: Arc::new(
                 AnthropicCompletion::builder()
                     .build()

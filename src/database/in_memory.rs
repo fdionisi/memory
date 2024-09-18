@@ -22,6 +22,7 @@ pub struct InMemory {
     thread_messages: Arc<Mutex<HashMap<Uuid, HashSet<Uuid>>>>,
 }
 
+#[allow(unused)]
 impl InMemory {
     pub fn new() -> Self {
         Self {
@@ -34,6 +35,18 @@ impl InMemory {
 
 #[ferrochain::async_trait]
 impl Db for InMemory {
+    async fn debug_state(&self) -> Result<serde_json::Value> {
+        let threads = self.threads.lock().await;
+        let messages = self.messages.lock().await;
+        let thread_messages = self.thread_messages.lock().await;
+
+        Ok(serde_json::json!({
+            "threads": threads.clone(),
+            "messages": messages.clone(),
+            "thread_messages": thread_messages.clone(),
+        }))
+    }
+
     async fn get_threads_with_embeddings(&self, thread_ids: &[Uuid]) -> Result<Vec<Thread>> {
         let threads = self.threads.lock().await;
         thread_ids
@@ -66,7 +79,7 @@ impl Db for InMemory {
         }
     }
 
-    async fn create_thread(&self) -> Thread {
+    async fn create_thread(&self) -> Result<Thread> {
         let thread = Thread::new();
         let mut threads = self.threads.lock().await;
         threads.insert(thread.id(), thread.clone());
@@ -74,7 +87,7 @@ impl Db for InMemory {
             .lock()
             .await
             .insert(thread.id(), HashSet::new());
-        thread
+        Ok(thread)
     }
 
     async fn delete_thread(&self, thread_id: Uuid) -> Result<()> {
@@ -137,9 +150,9 @@ impl Db for InMemory {
         Ok(message.clone())
     }
 
-    async fn list_threads(&self) -> Vec<Thread> {
+    async fn list_threads(&self) -> Result<Vec<Thread>> {
         let threads = self.threads.lock().await;
-        threads.values().cloned().collect()
+        Ok(threads.values().cloned().collect())
     }
 
     async fn get_thread(&self, thread_id: Uuid) -> Result<Thread> {

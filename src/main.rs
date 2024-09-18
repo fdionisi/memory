@@ -458,7 +458,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(update_message_response.status(), StatusCode::OK);
+        let status = update_message_response.status();
         let update_message_body: Value = serde_json::from_slice(
             &update_message_response
                 .into_body()
@@ -468,6 +468,8 @@ mod tests {
                 .to_bytes(),
         )
         .unwrap();
+        dbg!(&update_message_body);
+        assert_eq!(status, StatusCode::OK);
 
         assert_eq!(update_message_body["id"], message_id);
         assert_eq!(update_message_body["thread_id"], thread_id);

@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::domain::content::{Content, ContentKind};
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Message {
     pub id: Uuid,
     pub thread_id: Uuid,
@@ -63,7 +63,7 @@ impl CreateMessage {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct UpdateMessage {
     pub content: Content,
 }

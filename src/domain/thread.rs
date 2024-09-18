@@ -6,9 +6,7 @@ use crate::domain::embedding::Embedding;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Thread {
     pub id: Uuid,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
-    #[serde(skip)]
     pub embedding: Option<Embedding>,
 }
 
