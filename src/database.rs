@@ -21,6 +21,21 @@ pub struct Database {
 }
 
 impl Database {
+    pub async fn get_threads_with_embeddings(&self, thread_ids: &[Uuid]) -> Result<Vec<Thread>> {
+        let threads = self.threads.lock().await;
+        thread_ids
+            .iter()
+            .filter_map(|id| threads.get(id).cloned())
+            .collect::<Vec<Thread>>()
+            .into_iter()
+            .map(|mut thread| {
+                if thread.embedding.is_none() {
+                    thread.embedding = Some(Embedding::from(vec![0.0; 1536]));
+                }
+                Ok(thread)
+            })
+            .collect()
+    }
     pub async fn update_thread_summary_and_embedding(
         &self,
         thread_id: Uuid,

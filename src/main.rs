@@ -32,8 +32,10 @@ async fn main() {
     .await
     .unwrap();
 }
+
 #[cfg(test)]
 mod tests {
+
     use std::time::Duration;
 
     use axum::{
@@ -947,4 +949,87 @@ mod tests {
 
         assert_eq!(delete_nonexistent_response.status(), StatusCode::NOT_FOUND);
     }
+
+    // #[tokio::test]
+    // async fn search_threads() {
+    //     let app_state = AppState::new();
+    //     let mut app = api::routes::router(app_state);
+
+    //     // Create multiple threads
+    //     let thread_ids: Vec<Uuid> = vec![
+    //         create_thread_with_content(&mut app, "This is a test thread about apples").await,
+    //         create_thread_with_content(&mut app, "This thread discusses bananas").await,
+    //         create_thread_with_content(&mut app, "Let's talk about oranges").await,
+    //     ];
+
+    //     tokio::time::sleep(Duration::from_secs(10)).await;
+
+    //     // Perform search
+    //     let search_response = app
+    //         .oneshot(
+    //             Request::builder()
+    //                 .method(http::Method::POST)
+    //                 .uri("/search")
+    //                 .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+    //                 .body(Body::from(
+    //                     serde_json::to_string(&SearchRequest {
+    //                         query: "fruit".to_string(),
+    //                         thread_ids: thread_ids.clone(),
+    //                     })
+    //                     .unwrap(),
+    //                 ))
+    //                 .unwrap(),
+    //         )
+    //         .await
+    //         .unwrap();
+
+    //     assert_eq!(search_response.status(), StatusCode::OK);
+
+    //     let search_body = search_response
+    //         .into_body()
+    //         .collect()
+    //         .await
+    //         .unwrap()
+    //         .to_bytes();
+    //     let similarities: Vec<Similarity> = serde_json::from_slice(&search_body).unwrap();
+
+    //     assert_eq!(similarities.len(), 3);
+    //     assert!(similarities[0].score >= similarities[1].score);
+    //     assert!(similarities[1].score >= similarities[2].score);
+    // }
+
+    // async fn create_thread_with_content(app: &mut Router, content: &str) -> Uuid {
+    //     let response = app
+    //         .call(
+    //             Request::builder()
+    //                 .method(http::Method::POST)
+    //                 .uri("/threads")
+    //                 .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+    //                 .body(Body::empty())
+    //                 .unwrap(),
+    //         )
+    //         .await
+    //         .unwrap();
+
+    //     let body: Value =
+    //         serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes())
+    //             .unwrap();
+    //     let thread_id = Uuid::parse_str(body["id"].as_str().unwrap()).unwrap();
+
+    //     app.call(
+    //         Request::builder()
+    //             .method(http::Method::POST)
+    //             .uri(format!("/threads/{}/messages", thread_id))
+    //             .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+    //             .body(Body::from(format!(
+    //                 r#"{{"content": "{}", "role": "user"}}"#,
+    //                 content
+    //             )))
+    //             .unwrap(),
+    //     )
+    //     .await
+    //     .unwrap();
+
+    //     thread_id
+    // }
 }

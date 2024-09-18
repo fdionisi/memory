@@ -308,7 +308,7 @@ checksum = "e8c02a5121d4ea3eb16a80748c74f5549a5665e4c21333c6098f283870fbdea6"
 [[package]]
 name = "ferrochain"
 version = "0.1.0"
-source = "git+https://github.com/fdionisi/ferrochain?rev=f7527e3b8bf836b3dc5f70fb3dad85da21170dc2#f7527e3b8bf836b3dc5f70fb3dad85da21170dc2"
+source = "git+https://github.com/fdionisi/ferrochain?rev=e1799950d7333645edb3fa6f54a9883d401abdb5#e1799950d7333645edb3fa6f54a9883d401abdb5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -323,7 +323,7 @@ dependencies = [
 [[package]]
 name = "ferrochain-anthropic-completion"
 version = "0.1.0"
-source = "git+https://github.com/fdionisi/ferrochain?rev=f7527e3b8bf836b3dc5f70fb3dad85da21170dc2#f7527e3b8bf836b3dc5f70fb3dad85da21170dc2"
+source = "git+https://github.com/fdionisi/ferrochain?rev=e1799950d7333645edb3fa6f54a9883d401abdb5#e1799950d7333645edb3fa6f54a9883d401abdb5"
 dependencies = [
  "anthropic",
  "ferrochain",
@@ -332,7 +332,7 @@ dependencies = [
 [[package]]
 name = "ferrochain-voyageai-embedder"
 version = "0.1.0"
-source = "git+https://github.com/fdionisi/ferrochain?rev=f7527e3b8bf836b3dc5f70fb3dad85da21170dc2#f7527e3b8bf836b3dc5f70fb3dad85da21170dc2"
+source = "git+https://github.com/fdionisi/ferrochain?rev=e1799950d7333645edb3fa6f54a9883d401abdb5#e1799950d7333645edb3fa6f54a9883d401abdb5"
 dependencies = [
  "ferrochain",
  "voyageai-sdk",

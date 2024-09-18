@@ -1,10 +1,16 @@
+use std::collections::HashMap;
+
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
 };
-use serde::Deserialize;
+use ferrochain::{
+    document::{Document, StoredDocument},
+    vectorstore::Similarity,
+};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
@@ -15,7 +21,8 @@ use crate::{
         thread::Thread,
     },
     utils::{
-        completion::generate_summary, content::extract_text_content, embedding::generate_embeddings,
+        completion::generate_summary, content::extract_text_content,
+        embedding::generate_embeddings, similarity::cosine_similarity,
     },
 };
 
@@ -23,6 +30,12 @@ use crate::{
 pub struct PaginationParams {
     limit: Option<usize>,
     offset: Option<usize>,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct SearchRequest {
+    pub query: String,
+    pub thread_ids: Vec<Uuid>,
 }
 
 pub async fn create_thread(State(db): State<Database>) -> (StatusCode, Json<serde_json::Value>) {
@@ -77,8 +90,9 @@ pub async fn get_messages(
 pub async fn create_message(
     State(AppState {
         db,
-        embedder,
+        document_embedder,
         completion,
+        ..
     }): State<AppState>,
     Path(thread_id): Path<Uuid>,
     Json(create_message): Json<CreateMessage>,
@@ -112,7 +126,7 @@ pub async fn create_message(
                         }
                     };
 
-                    let embedding = match generate_embeddings(&embedder, &summary).await {
+                    let embedding = match generate_embeddings(&document_embedder, &summary).await {
                         Ok(e) => e,
                         Err(e) => {
                             tracing::error!("Failed to create embedding: {}", e);
@@ -181,4 +195,43 @@ pub async fn delete_thread(State(db): State<Database>, Path(thread_id): Path<Uui
         Ok(_) => StatusCode::NO_CONTENT,
         Err(_) => StatusCode::NOT_FOUND,
     }
+}
+
+pub async fn search_threads(
+    State(AppState {
+        db, query_embedder, ..
+    }): State<AppState>,
+    Json(search_request): Json<SearchRequest>,
+) -> Result<Json<Vec<Similarity>>, StatusCode> {
+    let threads = db
+        .get_threads_with_embeddings(&search_request.thread_ids)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let query_embedding = generate_embeddings(&query_embedder, &search_request.query)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let mut similarities: Vec<Similarity> = threads
+        .into_iter()
+        .filter_map(|thread| {
+            thread.embedding.map(|embedding| {
+                let score = cosine_similarity(&query_embedding, &embedding);
+                Similarity {
+                    stored: StoredDocument {
+                        id: thread.id.to_string(),
+                        document: Document {
+                            content: thread.summary.unwrap_or_default(),
+                            metadata: HashMap::new(),
+                        },
+                    },
+                    score,
+                }
+            })
+        })
+        .collect();
+
+    similarities.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
+
+    Ok(Json(similarities))
 }

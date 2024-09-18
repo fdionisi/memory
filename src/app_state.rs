@@ -11,7 +11,8 @@ use crate::database::Database;
 pub struct AppState {
     pub db: Database,
     pub completion: Arc<dyn Completion>,
-    pub embedder: Arc<dyn Embedder>,
+    pub document_embedder: Arc<dyn Embedder>,
+    pub query_embedder: Arc<dyn Embedder>,
 }
 
 impl AppState {
@@ -23,10 +24,17 @@ impl AppState {
                     .build()
                     .expect("Failed to create AnthropicCompletion"),
             ),
-            embedder: Arc::new(
+            document_embedder: Arc::new(
                 VoyageAiEmbedder::builder()
                     .model(EmbeddingModel::Voyage3)
                     .input_type(EmbeddingInputType::Document)
+                    .build()
+                    .expect("Failed to create VoyageAiEmbedder"),
+            ),
+            query_embedder: Arc::new(
+                VoyageAiEmbedder::builder()
+                    .model(EmbeddingModel::Voyage3)
+                    .input_type(EmbeddingInputType::Query)
                     .build()
                     .expect("Failed to create VoyageAiEmbedder"),
             ),

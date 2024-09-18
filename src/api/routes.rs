@@ -21,5 +21,6 @@ pub fn router(app_state: AppState) -> Router {
             "/threads/:thread_id/messages/:message_id",
             delete(handlers::delete_message),
         )
+        .route("/search", post(handlers::search_threads))
         .with_state(app_state)
 }
