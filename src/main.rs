@@ -119,7 +119,9 @@ mod tests {
                     .method(http::Method::POST)
                     .uri(format!("/threads/{thread_id}/messages"))
                     .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
-                    .body(Body::from(format!(r#"{{"content": "{message_content}"}}"#)))
+                    .body(Body::from(format!(
+                        r#"{{"content": "{message_content}", "role": "user"}}"#
+                    )))
                     .unwrap(),
             )
             .await
@@ -156,6 +158,10 @@ mod tests {
             message_body["content"]["text"], message_content,
             "Message content in response should match the sent content"
         );
+        assert_eq!(
+            message_body["role"], "user",
+            "Message role should be 'user'"
+        );
     }
 
     #[tokio::test]
@@ -170,7 +176,7 @@ mod tests {
                     .method(http::Method::POST)
                     .uri(format!("/threads/{non_existent_thread_id}/messages"))
                     .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
-                    .body(Body::from(r#"{"content": "Test message"}"#))
+                    .body(Body::from(r#"{"content": "Test message", "role": "user"}"#))
                     .unwrap(),
             )
             .await
@@ -229,7 +235,8 @@ mod tests {
                     .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
                     .body(Body::from(
                         serde_json::to_string(&serde_json::json!({
-                            "content": message_content
+                            "content": message_content,
+                            "role": "user"
                         }))
                         .unwrap(),
                     ))
@@ -272,6 +279,10 @@ mod tests {
             message_body["content"][1]["text"], message_content[1],
             "Message content in response should match the sent content"
         );
+        assert_eq!(
+            message_body["role"], "user",
+            "Message role should be 'user'"
+        );
     }
 
     #[tokio::test]
@@ -312,7 +323,8 @@ mod tests {
                     "type": "image",
                     "url": "https://example.com/image.jpg"
                 }
-            ]
+            ],
+            "role": "user"
         });
 
         let message_response = app
@@ -369,6 +381,10 @@ mod tests {
             message_body["content"][1]["url"], "https://example.com/image.jpg",
             "Image URL should match the sent URL"
         );
+        assert_eq!(
+            message_body["role"], "user",
+            "Message role should be 'user'"
+        );
     }
 
     #[tokio::test]
@@ -408,7 +424,9 @@ mod tests {
                     .method(http::Method::POST)
                     .uri(format!("/threads/{thread_id}/messages"))
                     .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
-                    .body(Body::from(r#"{"content": "Original message"}"#))
+                    .body(Body::from(
+                        r#"{"content": "Original message", "role": "user"}"#,
+                    ))
                     .unwrap(),
             )
             .await
@@ -433,7 +451,7 @@ mod tests {
                     .method(http::Method::PUT)
                     .uri(format!("/threads/{thread_id}/messages/{message_id}"))
                     .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
-                    .body(Body::from(r#"{"content": "Updated message"}"#))
+                    .body(Body::from(r#"{"content": "Updated message" }"#))
                     .unwrap(),
             )
             .await
@@ -453,6 +471,7 @@ mod tests {
         assert_eq!(update_message_body["id"], message_id);
         assert_eq!(update_message_body["thread_id"], thread_id);
         assert_eq!(update_message_body["content"]["text"], "Updated message");
+        assert_eq!(update_message_body["role"], "user");
 
         // Try to update a non-existent message
         let non_existent_message_id = Uuid::new_v4();
@@ -464,7 +483,9 @@ mod tests {
                         "/threads/{thread_id}/messages/{non_existent_message_id}"
                     ))
                     .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
-                    .body(Body::from(r#"{"content": "This should fail"}"#))
+                    .body(Body::from(
+                        r#"{"content": "This should fail", "role": "user"}"#,
+                    ))
                     .unwrap(),
             )
             .await
@@ -573,7 +594,7 @@ mod tests {
                         .method(http::Method::POST)
                         .uri(format!("/threads/{thread_id}/messages"))
                         .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
-                        .body(Body::from(r#"{"content": "Test message"}"#))
+                        .body(Body::from(r#"{"content": "Test message", "role": "user"}"#))
                         .unwrap(),
                 )
                 .await
@@ -617,7 +638,9 @@ mod tests {
                     .method(http::Method::POST)
                     .uri(format!("/threads/{thread_id}/messages"))
                     .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
-                    .body(Body::from(r#"{"content": "This should fail"}"#))
+                    .body(Body::from(
+                        r#"{"content": "This should fail", "role": "user"}"#,
+                    ))
                     .unwrap(),
             )
             .await
@@ -748,7 +771,10 @@ mod tests {
                         .method(http::Method::POST)
                         .uri(format!("/threads/{thread_id}/messages"))
                         .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
-                        .body(Body::from(format!(r#"{{"content": "{}"}}"#, content)))
+                        .body(Body::from(format!(
+                            r#"{{"content": "{}", "role": "user"}}"#,
+                            content
+                        )))
                         .unwrap(),
                 )
                 .await
@@ -804,6 +830,7 @@ mod tests {
         // Verify messages are in order
         for (i, message) in messages.iter().enumerate() {
             assert_eq!(message["content"]["text"], message_contents[i + 1]);
+            assert_eq!(message["role"], "user");
             if i > 0 {
                 let prev_created_at = DateTime::from_timestamp_millis(
                     messages[i - 1]["created_at"].as_i64().unwrap(),
@@ -875,7 +902,7 @@ mod tests {
                     .method(http::Method::POST)
                     .uri(format!("/threads/{thread_id}/messages"))
                     .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
-                    .body(Body::from(r#"{"content": "Test message"}"#))
+                    .body(Body::from(r#"{"content": "Test message", "role": "user"}"#))
                     .unwrap(),
             )
             .await

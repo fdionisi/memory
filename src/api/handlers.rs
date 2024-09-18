@@ -88,6 +88,7 @@ pub async fn create_message(
             if let Some(text_content) = extract_text_content(&message.content) {
                 let completion_content = text_content.clone();
                 let db_content = db.clone();
+                let message_role = message.role.clone();
                 tokio::spawn(async move {
                     let thread = match db_content.get_thread(thread_id).await {
                         Ok(response) => response,
@@ -100,6 +101,7 @@ pub async fn create_message(
                     let summary = match generate_summary(
                         completion,
                         thread.summary.unwrap_or_default(),
+                        message_role,
                         completion_content,
                     )
                     .await

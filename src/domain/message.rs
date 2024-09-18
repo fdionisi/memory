@@ -13,6 +13,7 @@ use crate::domain::{
 pub struct Message {
     pub id: Uuid,
     pub thread_id: Uuid,
+    pub role: String,
     pub content: Content,
     #[serde(with = "chrono::serde::ts_milliseconds")]
     pub created_at: DateTime<Utc>,
@@ -92,6 +93,7 @@ impl ToString for Message {
 
 #[derive(Serialize, Deserialize)]
 pub struct CreateMessage {
+    pub role: String,
     pub content: Content,
 }
 
@@ -100,6 +102,7 @@ impl CreateMessage {
         Message {
             id: Uuid::new_v4(),
             thread_id,
+            role: self.role,
             content: self.content,
             created_at: Utc::now(),
         }

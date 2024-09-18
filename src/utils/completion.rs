@@ -35,7 +35,7 @@ const SUMMARY_PROMPT: &str = indoc! {"
     {{CURRENT_SUMMARY}}
     </current_summary>
 
-    <new_message>
+    <new_message role={{ROLE}}>
     {{NEW_MESSAGE}}
     </new_message>
     "};
@@ -43,6 +43,7 @@ const SUMMARY_PROMPT: &str = indoc! {"
 pub async fn generate_summary(
     completion: Arc<dyn Completion>,
     summary: String,
+    role: String,
     content: String,
 ) -> Result<String> {
     let mut stream = completion
@@ -52,6 +53,7 @@ pub async fn generate_summary(
             messages: vec![Message {
                 content: vec![SUMMARY_PROMPT
                     .replace("{{CURRENT_SUMMARY}}", &summary)
+                    .replace("{{ROLE}}", &role)
                     .replace("{{NEW_MESSAGE}}", &content)
                     .into()],
                 ..Default::default()
