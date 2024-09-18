@@ -32,7 +32,6 @@ async fn main() {
     .await
     .unwrap();
 }
-
 #[cfg(test)]
 mod tests {
     use std::time::Duration;

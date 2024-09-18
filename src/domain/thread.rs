@@ -1,11 +1,15 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::domain::embedding::Embedding;
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Thread {
     pub id: Uuid,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
+    #[serde(skip)]
+    embedding: Option<Embedding>,
 }
 
 impl Thread {
@@ -13,6 +17,7 @@ impl Thread {
         Self {
             id: Uuid::new_v4(),
             summary: None,
+            embedding: None,
         }
     }
 
@@ -22,5 +27,9 @@ impl Thread {
 
     pub fn set_summary(&mut self, summary: String) {
         self.summary = Some(summary);
+    }
+
+    pub fn set_embedding(&mut self, embedding: Embedding) {
+        self.embedding = Some(embedding);
     }
 }

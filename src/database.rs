@@ -9,24 +9,28 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::domain::{
-    message::{
-        CreateMessage, Message, MessageWithEmbedding, ThreadMessagesResponse, UpdateMessage,
-    },
+    message::{CreateMessage, Message, ThreadMessagesResponse, UpdateMessage},
     thread::Thread,
 };
 
 #[derive(Clone)]
 pub struct Database {
     threads: Arc<Mutex<HashMap<Uuid, Thread>>>,
-    messages: Arc<Mutex<HashMap<Uuid, MessageWithEmbedding>>>,
+    messages: Arc<Mutex<HashMap<Uuid, Message>>>,
     thread_messages: Arc<Mutex<HashMap<Uuid, HashSet<Uuid>>>>,
 }
 
 impl Database {
-    pub async fn update_thread_summary(&self, thread_id: Uuid, summary: String) -> Result<()> {
+    pub async fn update_thread_summary_and_embedding(
+        &self,
+        thread_id: Uuid,
+        summary: String,
+        embedding: Embedding,
+    ) -> Result<()> {
         let mut threads = self.threads.lock().await;
         if let Some(thread) = threads.get_mut(&thread_id) {
             thread.set_summary(summary);
+            thread.set_embedding(embedding);
             Ok(())
         } else {
             Err(anyhow!("thread not found"))
@@ -69,7 +73,6 @@ impl Database {
 
         Ok(())
     }
-
     pub async fn create_message(&self, thread_id: Uuid, input: CreateMessage) -> Result<Message> {
         self.threads
             .lock()
@@ -80,7 +83,7 @@ impl Database {
         let message = input.into_message(thread_id);
         let message_id = message.id();
         let mut messages = self.messages.lock().await;
-        messages.insert(message_id, message.clone().into());
+        messages.insert(message_id, message.clone());
 
         let mut thread_messages = self.thread_messages.lock().await;
         thread_messages
@@ -90,7 +93,6 @@ impl Database {
 
         Ok(message)
     }
-
     pub async fn update_message(
         &self,
         thread_id: Uuid,
@@ -109,7 +111,7 @@ impl Database {
             .ok_or_else(|| anyhow!("message not found"))?;
 
         message.update_content(content);
-        Ok(message.clone().into())
+        Ok(message.clone())
     }
 
     pub async fn list_threads(&self) -> Vec<Thread> {
@@ -124,7 +126,6 @@ impl Database {
             .cloned()
             .ok_or_else(|| anyhow!("thread not found"))
     }
-
     pub async fn get_thread_messages(
         &self,
         thread_id: Uuid,
@@ -143,7 +144,6 @@ impl Database {
         let mut thread_messages: Vec<Message> = message_ids
             .iter()
             .filter_map(|id| messages.get(id).cloned())
-            .map(|message| message.into())
             .collect();
 
         thread_messages.sort_by(|a, b| a.created_at().cmp(&b.created_at()));
@@ -179,19 +179,5 @@ impl Database {
             .ok_or_else(|| anyhow!("message not found"))?;
 
         Ok(())
-    }
-
-    pub async fn save_message_embedding(
-        &self,
-        message_id: Uuid,
-        embedding: &Embedding,
-    ) -> Result<()> {
-        let mut messages = self.messages.lock().await;
-        if let Some(message) = messages.get_mut(&message_id) {
-            message.set_embedding(embedding.to_owned());
-            Ok(())
-        } else {
-            Err(anyhow!("message not found"))
-        }
     }
 }

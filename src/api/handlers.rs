@@ -97,7 +97,6 @@ pub async fn create_message(
                             return;
                         }
                     };
-
                     let summary = match generate_summary(
                         completion,
                         thread.summary.unwrap_or_default(),
@@ -113,13 +112,7 @@ pub async fn create_message(
                         }
                     };
 
-                    if let Err(e) = db_content.update_thread_summary(thread_id, summary).await {
-                        tracing::error!("Failed to update thread summary: {}", e);
-                    }
-                });
-
-                tokio::spawn(async move {
-                    let embedding = match generate_embeddings(&embedder, &text_content).await {
+                    let embedding = match generate_embeddings(&embedder, &summary).await {
                         Ok(e) => e,
                         Err(e) => {
                             tracing::error!("Failed to create embedding: {}", e);
@@ -127,8 +120,11 @@ pub async fn create_message(
                         }
                     };
 
-                    if let Err(e) = db.save_message_embedding(message.id, &embedding).await {
-                        tracing::error!("Failed to save message embedding: {}", e);
+                    if let Err(e) = db_content
+                        .update_thread_summary_and_embedding(thread_id, summary, embedding)
+                        .await
+                    {
+                        tracing::error!("Failed to update thread summary and embedding: {}", e);
                     }
                 });
             }
