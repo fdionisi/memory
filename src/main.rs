@@ -717,7 +717,13 @@ mod tests {
         let thread_id = create_thread_body["id"].as_str().unwrap();
 
         // Create multiple messages in the thread
-        let message_contents = vec!["First message", "Second message", "Third message"];
+        let message_contents = vec![
+            "First message",
+            "Second message",
+            "Third message",
+            "Fourth message",
+            "Fifth message",
+        ];
         for content in &message_contents {
             let create_message_response = app
                 .call(
@@ -737,12 +743,12 @@ mod tests {
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
 
-        // Get the thread messages
+        // Get the thread messages with pagination
         let get_messages_response = app
             .call(
                 Request::builder()
                     .method(http::Method::GET)
-                    .uri(format!("/threads/{thread_id}/messages"))
+                    .uri(format!("/threads/{thread_id}/messages?limit=3&offset=1"))
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -750,6 +756,21 @@ mod tests {
             .unwrap();
 
         assert_eq!(get_messages_response.status(), StatusCode::OK);
+
+        // Check headers
+        assert_eq!(
+            get_messages_response
+                .headers()
+                .get("X-Total-Count")
+                .unwrap(),
+            "5"
+        );
+        assert_eq!(
+            get_messages_response.headers().get("X-Offset").unwrap(),
+            "1"
+        );
+        assert_eq!(get_messages_response.headers().get("X-Limit").unwrap(), "3");
+
         let get_messages_body: Value = serde_json::from_slice(
             &get_messages_response
                 .into_body()
@@ -761,11 +782,11 @@ mod tests {
         .unwrap();
 
         let messages = get_messages_body.as_array().unwrap();
-        assert_eq!(messages.len(), message_contents.len());
+        assert_eq!(messages.len(), 3);
 
         // Verify messages are in order
         for (i, message) in messages.iter().enumerate() {
-            assert_eq!(message["content"]["text"], message_contents[i]);
+            assert_eq!(message["content"]["text"], message_contents[i + 1]);
             if i > 0 {
                 let prev_created_at = DateTime::from_timestamp_millis(
                     messages[i - 1]["created_at"].as_i64().unwrap(),

@@ -105,3 +105,11 @@ impl CreateMessage {
 pub struct UpdateMessage {
     content: Content,
 }
+
+#[derive(Serialize)]
+pub struct ThreadMessagesResponse {
+    pub messages: Vec<Message>,
+    pub total: usize,
+    pub offset: usize,
+    pub limit: usize,
+}

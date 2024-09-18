@@ -1,5 +1,5 @@
 use axum::{
-    extract::{FromRef, Path, State},
+    extract::{FromRef, Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::{delete, get, post, put},
@@ -8,9 +8,11 @@ use axum::{
 use tower_http::trace::TraceLayer;
 use uuid::Uuid;
 
+use serde::Deserialize;
+
 use crate::{
     database::Database,
-    message::{CreateMessage, Message, UpdateMessage},
+    message::{CreateMessage, UpdateMessage},
     thread::Thread,
 };
 
@@ -76,12 +78,29 @@ async fn get_thread(
     }
 }
 
+#[derive(Deserialize)]
+struct ThreadMessagesParams {
+    limit: Option<usize>,
+    offset: Option<usize>,
+}
+
 async fn get_messages(
     State(db): State<Database>,
     Path(thread_id): Path<Uuid>,
-) -> Result<Json<Vec<Message>>, StatusCode> {
-    match db.get_thread_messages(thread_id).await {
-        Ok(messages) => Ok(Json(messages)),
+    Query(params): Query<ThreadMessagesParams>,
+) -> Result<impl IntoResponse, StatusCode> {
+    match db
+        .get_thread_messages(thread_id, params.limit, params.offset)
+        .await
+    {
+        Ok(response) => {
+            let headers = [
+                ("X-Total-Count", response.total.to_string()),
+                ("X-Offset", response.offset.to_string()),
+                ("X-Limit", response.limit.to_string()),
+            ];
+            Ok((headers, Json(response.messages)))
+        }
         Err(e) => match e.to_string().as_str() {
             "thread not found" => Err(StatusCode::NOT_FOUND),
             _ => Err(StatusCode::INTERNAL_SERVER_ERROR),

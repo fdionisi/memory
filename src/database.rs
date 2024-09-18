@@ -8,7 +8,7 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::{
-    message::{CreateMessage, Message, UpdateMessage},
+    message::{CreateMessage, Message, ThreadMessagesResponse, UpdateMessage},
     thread::Thread,
 };
 
@@ -112,7 +112,12 @@ impl Database {
             .ok_or_else(|| anyhow!("thread not found"))
     }
 
-    pub async fn get_thread_messages(&self, thread_id: Uuid) -> Result<Vec<Message>> {
+    pub async fn get_thread_messages(
+        &self,
+        thread_id: Uuid,
+        limit: Option<usize>,
+        offset: Option<usize>,
+    ) -> Result<ThreadMessagesResponse> {
         let threads = self.threads.lock().await;
         if !threads.contains_key(&thread_id) {
             return Err(anyhow!("thread not found"));
@@ -129,7 +134,22 @@ impl Database {
 
         thread_messages.sort_by(|a, b| a.created_at().cmp(&b.created_at()));
 
-        Ok(thread_messages)
+        let total = thread_messages.len();
+        let offset = offset.unwrap_or(0);
+        let limit = limit.unwrap_or(total);
+
+        let paginated_messages = thread_messages
+            .into_iter()
+            .skip(offset)
+            .take(limit)
+            .collect();
+
+        Ok(ThreadMessagesResponse {
+            messages: paginated_messages,
+            total,
+            offset,
+            limit,
+        })
     }
 
     pub async fn delete_message(&self, thread_id: Uuid, message_id: Uuid) -> Result<()> {
