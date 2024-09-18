@@ -5,11 +5,11 @@ use ferrochain::{completion::Completion, embedding::Embedder};
 use ferrochain_anthropic_completion::AnthropicCompletion;
 use ferrochain_voyageai_embedder::{EmbeddingInputType, EmbeddingModel, VoyageAiEmbedder};
 
-use crate::database::Database;
+use crate::database::{Db, InMemory};
 
 #[derive(Clone)]
 pub struct AppState {
-    pub db: Database,
+    pub db: Arc<dyn Db + Send + Sync>,
     pub completion: Arc<dyn Completion>,
     pub document_embedder: Arc<dyn Embedder>,
     pub query_embedder: Arc<dyn Embedder>,
@@ -18,7 +18,7 @@ pub struct AppState {
 impl AppState {
     pub fn new() -> Self {
         Self {
-            db: Database::new(),
+            db: Arc::new(InMemory::new()),
             completion: Arc::new(
                 AnthropicCompletion::builder()
                     .build()
@@ -42,8 +42,8 @@ impl AppState {
     }
 }
 
-impl FromRef<AppState> for Database {
-    fn from_ref(app_state: &AppState) -> Database {
+impl FromRef<AppState> for Arc<dyn Db> {
+    fn from_ref(app_state: &AppState) -> Arc<dyn Db> {
         app_state.db.clone()
     }
 }

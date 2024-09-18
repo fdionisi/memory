@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use axum::{
     extract::{Path, Query, State},
@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 use crate::{
     app_state::AppState,
-    database::Database,
+    database::Db,
     domain::{
         message::{CreateMessage, UpdateMessage},
         thread::Thread,
@@ -38,7 +38,7 @@ pub struct SearchRequest {
     pub thread_ids: Vec<Uuid>,
 }
 
-pub async fn create_thread(State(db): State<Database>) -> (StatusCode, Json<serde_json::Value>) {
+pub async fn create_thread(State(db): State<Arc<dyn Db>>) -> (StatusCode, Json<serde_json::Value>) {
     let thread = db.create_thread().await;
     let thread_id = thread.id();
 
@@ -48,13 +48,13 @@ pub async fn create_thread(State(db): State<Database>) -> (StatusCode, Json<serd
     )
 }
 
-pub async fn list_threads(State(db): State<Database>) -> Json<Vec<Thread>> {
+pub async fn list_threads(State(db): State<Arc<dyn Db>>) -> Json<Vec<Thread>> {
     let threads = db.list_threads().await;
     Json(threads)
 }
 
 pub async fn get_thread(
-    State(db): State<Database>,
+    State(db): State<Arc<dyn Db>>,
     Path(thread_id): Path<Uuid>,
 ) -> Result<Json<Thread>, StatusCode> {
     match db.get_thread(thread_id).await {
@@ -64,7 +64,7 @@ pub async fn get_thread(
 }
 
 pub async fn get_messages(
-    State(db): State<Database>,
+    State(db): State<Arc<dyn Db>>,
     Path(thread_id): Path<Uuid>,
     Query(params): Query<PaginationParams>,
 ) -> Result<impl IntoResponse, StatusCode> {
@@ -153,7 +153,7 @@ pub async fn create_message(
 }
 
 pub async fn update_message(
-    State(db): State<Database>,
+    State(db): State<Arc<dyn Db>>,
     Path((thread_id, message_id)): Path<(Uuid, Uuid)>,
     Json(update_message): Json<UpdateMessage>,
 ) -> Response {
@@ -178,7 +178,7 @@ pub async fn update_message(
 }
 
 pub async fn delete_message(
-    State(db): State<Database>,
+    State(db): State<Arc<dyn Db>>,
     Path((thread_id, message_id)): Path<(Uuid, Uuid)>,
 ) -> StatusCode {
     match db.delete_message(thread_id, message_id).await {
@@ -190,7 +190,10 @@ pub async fn delete_message(
     }
 }
 
-pub async fn delete_thread(State(db): State<Database>, Path(thread_id): Path<Uuid>) -> StatusCode {
+pub async fn delete_thread(
+    State(db): State<Arc<dyn Db>>,
+    Path(thread_id): Path<Uuid>,
+) -> StatusCode {
     match db.delete_thread(thread_id).await {
         Ok(_) => StatusCode::NO_CONTENT,
         Err(_) => StatusCode::NOT_FOUND,
