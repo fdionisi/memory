@@ -7,3 +7,5 @@ Key features:
 - Messages are returned in chronological order.
 - Create, retrieve, list, and delete threads.
 - Add, update, retrieve, and delete messages in threads.
+- Embeddings are generated for message content (text only).
+- Automatic summarisation of conversation threads.
