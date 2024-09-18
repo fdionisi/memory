@@ -11,6 +11,7 @@ use crate::{
     message::{CreateMessage, Message, UpdateMessage},
     thread::Thread,
 };
+
 #[derive(Clone)]
 pub struct Database {
     threads: Arc<Mutex<HashMap<Uuid, Thread>>>,
@@ -110,6 +111,7 @@ impl Database {
             .cloned()
             .ok_or_else(|| anyhow!("thread not found"))
     }
+
     pub async fn get_thread_messages(&self, thread_id: Uuid) -> Result<Vec<Message>> {
         let threads = self.threads.lock().await;
         if !threads.contains_key(&thread_id) {

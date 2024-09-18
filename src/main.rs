@@ -686,6 +686,7 @@ mod tests {
             StatusCode::NOT_FOUND
         );
     }
+
     #[tokio::test]
     async fn get_thread_messages() {
         let mut app = AppState::router();

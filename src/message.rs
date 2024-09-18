@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -61,8 +62,6 @@ impl<'de> Deserialize<'de> for Content {
     }
 }
 
-use chrono::{DateTime, Utc};
-
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Message {
     id: Uuid,
@@ -85,6 +84,7 @@ impl Message {
         self.created_at
     }
 }
+
 #[derive(Serialize, Deserialize)]
 pub struct CreateMessage {
     content: Content,

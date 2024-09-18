@@ -14,51 +14,6 @@ use crate::{
     thread::Thread,
 };
 
-async fn update_message(
-    State(db): State<Database>,
-    Path((thread_id, message_id)): Path<(Uuid, Uuid)>,
-    Json(update_message): Json<UpdateMessage>,
-) -> Response {
-    match db
-        .update_message(thread_id, message_id, update_message)
-        .await
-    {
-        Ok(message) => (StatusCode::OK, Json(message)).into_response(),
-        Err(e) => match e.to_string().as_str() {
-            "thread not found" | "message not found" => (
-                StatusCode::NOT_FOUND,
-                Json(serde_json::json!({ "error": e.to_string() })),
-            )
-                .into_response(),
-            _ => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({ "error": "internal server error" })),
-            )
-                .into_response(),
-        },
-    }
-}
-
-async fn delete_message(
-    State(db): State<Database>,
-    Path((thread_id, message_id)): Path<(Uuid, Uuid)>,
-) -> StatusCode {
-    match db.delete_message(thread_id, message_id).await {
-        Ok(_) => StatusCode::NO_CONTENT,
-        Err(e) => match e.to_string().as_str() {
-            "thread not found" | "message not found" => StatusCode::NOT_FOUND,
-            _ => StatusCode::INTERNAL_SERVER_ERROR,
-        },
-    }
-}
-
-async fn delete_thread(State(db): State<Database>, Path(thread_id): Path<Uuid>) -> StatusCode {
-    match db.delete_thread(thread_id).await {
-        Ok(_) => StatusCode::NO_CONTENT,
-        Err(_) => StatusCode::NOT_FOUND,
-    }
-}
-
 #[derive(Clone)]
 pub struct AppState {
     db: Database,
@@ -87,6 +42,12 @@ impl AppState {
             )
             .with_state(state)
             .layer(TraceLayer::new_for_http())
+    }
+}
+
+impl FromRef<AppState> for Database {
+    fn from_ref(app_state: &AppState) -> Database {
+        app_state.db.clone()
     }
 }
 
@@ -143,8 +104,47 @@ async fn create_message(
     }
 }
 
-impl FromRef<AppState> for Database {
-    fn from_ref(app_state: &AppState) -> Database {
-        app_state.db.clone()
+async fn update_message(
+    State(db): State<Database>,
+    Path((thread_id, message_id)): Path<(Uuid, Uuid)>,
+    Json(update_message): Json<UpdateMessage>,
+) -> Response {
+    match db
+        .update_message(thread_id, message_id, update_message)
+        .await
+    {
+        Ok(message) => (StatusCode::OK, Json(message)).into_response(),
+        Err(e) => match e.to_string().as_str() {
+            "thread not found" | "message not found" => (
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({ "error": e.to_string() })),
+            )
+                .into_response(),
+            _ => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": "internal server error" })),
+            )
+                .into_response(),
+        },
+    }
+}
+
+async fn delete_message(
+    State(db): State<Database>,
+    Path((thread_id, message_id)): Path<(Uuid, Uuid)>,
+) -> StatusCode {
+    match db.delete_message(thread_id, message_id).await {
+        Ok(_) => StatusCode::NO_CONTENT,
+        Err(e) => match e.to_string().as_str() {
+            "thread not found" | "message not found" => StatusCode::NOT_FOUND,
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
+        },
+    }
+}
+
+async fn delete_thread(State(db): State<Database>, Path(thread_id): Path<Uuid>) -> StatusCode {
+    match db.delete_thread(thread_id).await {
+        Ok(_) => StatusCode::NO_CONTENT,
+        Err(_) => StatusCode::NOT_FOUND,
     }
 }
