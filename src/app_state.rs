@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use axum::{
     extract::{FromRef, Path, Query, State},
     http::StatusCode,
@@ -5,26 +7,35 @@ use axum::{
     routing::{delete, get, post, put},
     Json, Router,
 };
+use ferrochain::embedding::Embedder;
+use ferrochain_voyageai_embedder::{EmbeddingInputType, EmbeddingModel, VoyageAiEmbedder};
+use serde::Deserialize;
 use tower_http::trace::TraceLayer;
 use uuid::Uuid;
 
-use serde::Deserialize;
-
 use crate::{
     database::Database,
-    message::{CreateMessage, UpdateMessage},
+    message::{Content, ContentKind, CreateMessage, UpdateMessage},
     thread::Thread,
 };
 
 #[derive(Clone)]
 pub struct AppState {
     db: Database,
+    embedder: Arc<dyn Embedder>,
 }
 
 impl AppState {
     pub fn router() -> Router {
         let state = Self {
             db: Database::new(),
+            embedder: Arc::new(
+                VoyageAiEmbedder::builder()
+                    .model(EmbeddingModel::Voyage3)
+                    .input_type(EmbeddingInputType::Document)
+                    .build()
+                    .expect("Failed to create VoyageAiEmbedder"),
+            ),
         };
 
         Router::new()
@@ -107,19 +118,65 @@ async fn get_messages(
         },
     }
 }
-
 async fn create_message(
-    State(db): State<Database>,
+    State(AppState { db, embedder }): State<AppState>,
     Path(thread_id): Path<Uuid>,
     Json(create_message): Json<CreateMessage>,
 ) -> Response {
     match db.create_message(thread_id, create_message).await {
-        Ok(message) => (StatusCode::CREATED, Json(message)).into_response(),
+        Ok(message) => {
+            if let Some(text_content) = extract_text_content(&message.content) {
+                tokio::spawn(async move {
+                    let embeddings = match embedder.embed(vec![text_content]).await {
+                        Ok(e) => e,
+                        Err(e) => {
+                            tracing::error!("Failed to create embedding: {}", e);
+                            return;
+                        }
+                    };
+
+                    let Some(embedding) = embeddings.first() else {
+                        tracing::warn!("No embedding generated for message");
+                        return;
+                    };
+
+                    if let Err(e) = db.save_message_embedding(message.id, embedding).await {
+                        tracing::error!("Failed to save message embedding: {}", e);
+                    }
+                });
+            }
+            (StatusCode::CREATED, Json(message)).into_response()
+        }
         Err(_) => (
             StatusCode::NOT_FOUND,
             Json(serde_json::json!({ "error": "thread not found" })),
         )
             .into_response(),
+    }
+}
+
+fn extract_text_content(content: &Content) -> Option<String> {
+    match content {
+        Content::Single(ContentKind::Text { text }) => Some(text.clone()),
+        Content::Multiple(contents) => {
+            let text_contents: Vec<String> = contents
+                .iter()
+                .filter_map(|c| {
+                    if let ContentKind::Text { text } = c {
+                        Some(text.clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            if text_contents.is_empty() {
+                None
+            } else {
+                Some(text_contents.join("\n"))
+            }
+        }
+        _ => None,
     }
 }
 

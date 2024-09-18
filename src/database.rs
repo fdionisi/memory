@@ -4,18 +4,21 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
+use ferrochain::embedding::Embedding;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use crate::{
-    message::{CreateMessage, Message, ThreadMessagesResponse, UpdateMessage},
+    message::{
+        CreateMessage, Message, MessageWithEmbedding, ThreadMessagesResponse, UpdateMessage,
+    },
     thread::Thread,
 };
 
 #[derive(Clone)]
 pub struct Database {
     threads: Arc<Mutex<HashMap<Uuid, Thread>>>,
-    messages: Arc<Mutex<HashMap<Uuid, Message>>>,
+    messages: Arc<Mutex<HashMap<Uuid, MessageWithEmbedding>>>,
     thread_messages: Arc<Mutex<HashMap<Uuid, HashSet<Uuid>>>>,
 }
 
@@ -67,7 +70,7 @@ impl Database {
         let message = input.into_message(thread_id);
         let message_id = message.id();
         let mut messages = self.messages.lock().await;
-        messages.insert(message_id, message.clone());
+        messages.insert(message_id, message.clone().into());
 
         let mut thread_messages = self.thread_messages.lock().await;
         thread_messages
@@ -96,7 +99,7 @@ impl Database {
             .ok_or_else(|| anyhow!("message not found"))?;
 
         message.update_content(content);
-        Ok(message.clone())
+        Ok(message.clone().into())
     }
 
     pub async fn list_threads(&self) -> Vec<Thread> {
@@ -130,6 +133,7 @@ impl Database {
         let mut thread_messages: Vec<Message> = message_ids
             .iter()
             .filter_map(|id| messages.get(id).cloned())
+            .map(|message| message.into())
             .collect();
 
         thread_messages.sort_by(|a, b| a.created_at().cmp(&b.created_at()));
@@ -165,5 +169,19 @@ impl Database {
             .ok_or_else(|| anyhow!("message not found"))?;
 
         Ok(())
+    }
+
+    pub async fn save_message_embedding(
+        &self,
+        message_id: Uuid,
+        embedding: &Embedding,
+    ) -> Result<()> {
+        let mut messages = self.messages.lock().await;
+        if let Some(message) = messages.get_mut(&message_id) {
+            message.set_embedding(embedding.to_owned());
+            Ok(())
+        } else {
+            Err(anyhow!("message not found"))
+        }
     }
 }

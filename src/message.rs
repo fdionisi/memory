@@ -1,4 +1,7 @@
+use std::ops::{Deref, DerefMut};
+
 use chrono::{DateTime, Utc};
+use ferrochain::embedding::Embedding;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -64,11 +67,52 @@ impl<'de> Deserialize<'de> for Content {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Message {
-    id: Uuid,
-    thread_id: Uuid,
-    content: Content,
+    pub id: Uuid,
+    pub thread_id: Uuid,
+    pub content: Content,
     #[serde(with = "chrono::serde::ts_milliseconds")]
-    created_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+}
+
+impl From<MessageWithEmbedding> for Message {
+    fn from(message_with_embedding: MessageWithEmbedding) -> Self {
+        message_with_embedding.message
+    }
+}
+
+#[derive(Clone)]
+pub struct MessageWithEmbedding {
+    pub message: Message,
+    pub embedding: Option<Embedding>,
+}
+
+impl MessageWithEmbedding {
+    pub fn set_embedding(&mut self, embedding: Embedding) {
+        self.embedding = Some(embedding);
+    }
+}
+
+impl From<Message> for MessageWithEmbedding {
+    fn from(message: Message) -> Self {
+        MessageWithEmbedding {
+            message,
+            embedding: None,
+        }
+    }
+}
+
+impl Deref for MessageWithEmbedding {
+    type Target = Message;
+
+    fn deref(&self) -> &Self::Target {
+        &self.message
+    }
+}
+
+impl DerefMut for MessageWithEmbedding {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.message
+    }
 }
 
 impl Message {

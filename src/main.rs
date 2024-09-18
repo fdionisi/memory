@@ -141,8 +141,6 @@ mod tests {
             "The message 'id' should be a valid UUID"
         );
 
-        dbg!(&message_body["content"]);
-
         assert_eq!(
             message_body["content"]["text"], message_content,
             "Message content in response should match the sent content"
