@@ -23,6 +23,16 @@ pub struct Database {
 }
 
 impl Database {
+    pub async fn update_thread_summary(&self, thread_id: Uuid, summary: String) -> Result<()> {
+        let mut threads = self.threads.lock().await;
+        if let Some(thread) = threads.get_mut(&thread_id) {
+            thread.set_summary(summary);
+            Ok(())
+        } else {
+            Err(anyhow!("thread not found"))
+        }
+    }
+
     pub fn new() -> Self {
         Self {
             threads: Arc::new(Mutex::new(HashMap::new())),

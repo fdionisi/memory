@@ -129,6 +129,23 @@ impl Message {
     }
 }
 
+impl ToString for Message {
+    fn to_string(&self) -> String {
+        match &self.content {
+            Content::Single(ContentKind::Text { text }) => text.clone(),
+            Content::Multiple(content) => content
+                .iter()
+                .map(|content| match content {
+                    ContentKind::Text { text } => text.clone(),
+                    ContentKind::Image { url } => url.clone(),
+                })
+                .collect::<Vec<String>>()
+                .join("\n"),
+            Content::Single(ContentKind::Image { url }) => url.clone(),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct CreateMessage {
     content: Content,

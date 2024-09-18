@@ -7,8 +7,9 @@ edition = "2021"
 anyhow = "1.0.87"
 axum = "0.7.5"
 chrono = { version = "0.4", features = ["serde"] }
-ferrochain = { git = "https://github.com/fdionisi/ferrochain", rev = "5a81774ac9fcbd1989ec10361610265385cc5363" }
-ferrochain-voyageai-embedder = { git = "https://github.com/fdionisi/ferrochain", rev = "5a81774ac9fcbd1989ec10361610265385cc5363" }
+ferrochain = { git = "https://github.com/fdionisi/ferrochain", rev = "f7527e3b8bf836b3dc5f70fb3dad85da21170dc2" }
+ferrochain-voyageai-embedder = { git = "https://github.com/fdionisi/ferrochain", rev = "f7527e3b8bf836b3dc5f70fb3dad85da21170dc2" }
+ferrochain-anthropic-completion = { git = "https://github.com/fdionisi/ferrochain", rev = "f7527e3b8bf836b3dc5f70fb3dad85da21170dc2" }
 serde = { version = "1.0.210", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1.40.0", features = ["full"] }
@@ -16,6 +17,7 @@ tower-http = { version = "0.5.0", features = ["trace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { version = "1.4", features = ["v4", "serde"] }
+indoc = "2.0.5"
 
 [dev-dependencies]
 http-body-util = "0.1.0"

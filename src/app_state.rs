@@ -7,7 +7,12 @@ use axum::{
     routing::{delete, get, post, put},
     Json, Router,
 };
-use ferrochain::embedding::Embedder;
+use ferrochain::{
+    completion::{Completion, CompletionRequest, StreamEvent},
+    embedding::Embedder,
+    futures::StreamExt,
+};
+use ferrochain_anthropic_completion::{AnthropicCompletion, Model};
 use ferrochain_voyageai_embedder::{EmbeddingInputType, EmbeddingModel, VoyageAiEmbedder};
 use serde::Deserialize;
 use tower_http::trace::TraceLayer;
@@ -22,6 +27,7 @@ use crate::{
 #[derive(Clone)]
 pub struct AppState {
     db: Database,
+    completion: Arc<dyn Completion>,
     embedder: Arc<dyn Embedder>,
 }
 
@@ -29,6 +35,11 @@ impl AppState {
     pub fn router() -> Router {
         let state = Self {
             db: Database::new(),
+            completion: Arc::new(
+                AnthropicCompletion::builder()
+                    .build()
+                    .expect("Failed to create AnthropicCompletion"),
+            ),
             embedder: Arc::new(
                 VoyageAiEmbedder::builder()
                     .model(EmbeddingModel::Voyage3)
@@ -119,13 +130,72 @@ async fn get_messages(
     }
 }
 async fn create_message(
-    State(AppState { db, embedder }): State<AppState>,
+    State(AppState {
+        db,
+        embedder,
+        completion,
+    }): State<AppState>,
     Path(thread_id): Path<Uuid>,
     Json(create_message): Json<CreateMessage>,
 ) -> Response {
     match db.create_message(thread_id, create_message).await {
         Ok(message) => {
             if let Some(text_content) = extract_text_content(&message.content) {
+                let completion_content = text_content.clone();
+                let db_content = db.clone();
+                tokio::spawn(async move {
+                    let thread = match db_content.get_thread(thread_id).await {
+                        Ok(response) => response,
+                        Err(e) => {
+                            tracing::error!("Failed to fetch thread messages: {}", e);
+                            return;
+                        }
+                    };
+
+                    let mut stream = match completion.complete(CompletionRequest {
+                        model: Model::ClaudeThreeDotFiveSonnet.to_string(),
+                        messages: vec![ferrochain::message::Message {
+                            content: vec![dbg!(format!("Summarize the following conversation, including the new message:\n\n<current_summary>{}</current_summary>\n\n<new_message>{}</new_message>",
+                                thread.summary.unwrap_or_default(),
+                                completion_content
+                            )).into()],
+                            ..Default::default()
+                        }],
+                        system: Some(vec!["You are a helpful assistant tasked with summarizing conversations. Provide a concise summary that captures the main points and overall context of the discussion. You must only answer with the new summary and nothing else. Be terse. Do not bother me with lengthy answers that were not asked for; my time is valuable. Be terse yet include all the information necessary to have a good overview of the conversation.".into()]),
+                        temperature: Some(0.2),
+                    }).await {
+                        Ok(s) => s,
+                        Err(e) => {
+                            tracing::error!("Failed to create completion: {}", e);
+                            return;
+                        }
+                    };
+
+                    let mut summary = String::new();
+                    while let Some(event) = stream.next().await {
+                        match event {
+                            Ok(StreamEvent::Start { content, .. })
+                            | Ok(StreamEvent::Delta { content, .. }) => match content {
+                                ferrochain::message::Content::Text { text } => {
+                                    summary.push_str(&text)
+                                }
+                                ferrochain::message::Content::Image { .. } => continue,
+                            },
+                            Err(e) => {
+                                tracing::error!("Failed to fetch thread messages: {}", e);
+                                return;
+                            }
+                            _ => continue,
+                        }
+                    }
+
+                    dbg!(&summary);
+
+                    if let Err(e) = db_content.update_thread_summary(thread_id, summary).await {
+                        tracing::error!("Failed to update thread summary: {}", e);
+                    }
+                });
+
                 tokio::spawn(async move {
                     let embeddings = match embedder.embed(vec![text_content]).await {
                         Ok(e) => e,
