@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
+use domain::embedding::Embedding;
 use ferrochain::embedding::Embedder;
-
-use crate::domain::embedding::Embedding;
 
 pub async fn generate_embeddings(
     embedder: &Arc<dyn Embedder>,

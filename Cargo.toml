@@ -3,23 +3,25 @@ name = "memory"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+path = "src/memory.rs"
+
 [dependencies]
 anyhow = "1.0.87"
 axum = "0.7.5"
-chrono = { version = "0.4", features = ["serde"] }
-ferrochain = { git = "https://github.com/fdionisi/ferrochain", rev = "52adae995ed13395f5e02e9d06be34465a59a306" }
-ferrochain-anthropic-completion = { git = "https://github.com/fdionisi/ferrochain", rev = "52adae995ed13395f5e02e9d06be34465a59a306" }
-ferrochain-voyageai-embedder = { git = "https://github.com/fdionisi/ferrochain", rev = "52adae995ed13395f5e02e9d06be34465a59a306" }
-heed = "0.20.5"
+chrono.workspace = true
+domain.workspace = true
+database.workspace = true
+ferrochain.workspace = true
 indoc = "2.0.5"
-serde = { version = "1.0.210", features = ["derive"] }
-serde_json = "1.0"
-thiserror = "1.0.63"
-tokio = { version = "1.40.0", features = ["full"] }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
 tower-http = { version = "0.5.0", features = ["trace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-uuid = { version = "1.4", features = ["v4", "serde"] }
+uuid.workspace = true
 
 [dev-dependencies]
 http-body-util = "0.1.0"
@@ -30,3 +32,29 @@ hyper-util = { version = "0.1", features = [
     "http1",
     "client-legacy",
 ] }
+
+[workspace]
+resolver = "2"
+members = [
+    "crates/database",
+    "crates/domain",
+    "crates/databases/heed",
+    "crates/databases/in_memory",
+    "crates/cli",
+]
+
+[workspace.dependencies]
+anyhow = "1.0.87"
+async-trait = "0.1.82"
+chrono = { version = "0.4", features = ["serde"] }
+database = { path = "crates/database" }
+domain = { path = "crates/domain" }
+memory = { path = "." }
+in_memory_database = { path = "crates/databases/in_memory" }
+heed_database = { path = "crates/databases/heed" }
+ferrochain = { git = "https://github.com/fdionisi/ferrochain", rev = "52adae995ed13395f5e02e9d06be34465a59a306" }
+serde = { version = "1.0.210", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0.63"
+tokio = { version = "1.40.0", features = ["full"] }
+uuid = { version = "1.4", features = ["v4", "serde"] }

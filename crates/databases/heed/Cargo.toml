@@ -1,0 +1,16 @@
+[package]
+name = "heed_database"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+path = "src/heed.rs"
+
+[dependencies]
+async-trait.workspace = true
+chrono.workspace = true
+database.workspace = true
+domain.workspace = true
+heed = "0.20.5"
+serde_json.workspace = true
+uuid.workspace = true

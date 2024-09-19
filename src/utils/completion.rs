@@ -6,7 +6,6 @@ use ferrochain::{
     futures::StreamExt,
     message::{Content, Message},
 };
-use ferrochain_anthropic_completion::Model;
 use indoc::indoc;
 
 const SUMMARY_SYSTEM_PROMPT: &str = indoc! {"
@@ -49,13 +48,14 @@ const SUMMARY_PROMPT: &str = indoc! {"
 
 pub async fn generate_summary(
     completion: Arc<dyn Completion>,
+    completion_model: String,
     summary: String,
     role: String,
     content: String,
 ) -> Result<String> {
     let mut stream = completion
         .complete(CompletionRequest {
-            model: Model::ClaudeThreeDotFiveSonnet.to_string(),
+            model: completion_model,
             system: Some(vec![SUMMARY_SYSTEM_PROMPT.into()]),
             messages: vec![Message {
                 content: vec![SUMMARY_PROMPT

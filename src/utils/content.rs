@@ -1,4 +1,4 @@
-use crate::domain::content::{Content, ContentKind};
+use domain::content::{Content, ContentKind};
 
 pub fn extract_text_content(content: &Content) -> Option<String> {
     match content {

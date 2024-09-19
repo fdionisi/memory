@@ -3,9 +3,9 @@ use axum::{
     Router,
 };
 
-use crate::{api::handlers, app_state::AppState};
+use crate::{api::handlers, api_state::ApiState};
 
-pub fn router(app_state: AppState) -> Router {
+pub fn router(app_state: ApiState) -> Router {
     Router::new()
         .route("/threads", post(handlers::create_thread))
         .route("/threads", get(handlers::list_threads))

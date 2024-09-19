@@ -6,6 +6,11 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use database::{error::DatabaseError, Db};
+use domain::{
+    message::{CreateMessage, UpdateMessage},
+    thread::Thread,
+};
 use ferrochain::{
     document::{Document, StoredDocument},
     vectorstore::Similarity,
@@ -14,12 +19,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    app_state::AppState,
-    database::{error::DatabaseError, Db},
-    domain::{
-        message::{CreateMessage, UpdateMessage},
-        thread::Thread,
-    },
+    api_state::ApiState,
     utils::{
         completion::generate_summary, content::extract_text_content,
         embedding::generate_embeddings, similarity::cosine_similarity,
@@ -100,12 +100,13 @@ pub async fn get_messages(
 }
 
 pub async fn create_message(
-    State(AppState {
+    State(ApiState {
         db,
         document_embedder,
         completion,
+        completion_model,
         ..
-    }): State<AppState>,
+    }): State<ApiState>,
     Path(thread_id): Path<Uuid>,
     Json(create_message): Json<CreateMessage>,
 ) -> Response {
@@ -126,6 +127,7 @@ pub async fn create_message(
 
                     let summary = match generate_summary(
                         completion,
+                        completion_model,
                         thread.summary.unwrap_or_default(),
                         message_role,
                         completion_content,
@@ -232,9 +234,9 @@ pub async fn debug_database_state(
 }
 
 pub async fn search_threads(
-    State(AppState {
+    State(ApiState {
         db, query_embedder, ..
-    }): State<AppState>,
+    }): State<ApiState>,
     Json(search_request): Json<SearchRequest>,
 ) -> Result<Json<Vec<Similarity>>, StatusCode> {
     let threads = db
