@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use ferrochain::embedding::Embedding;
 use tokio::sync::Mutex;
 use uuid::Uuid;
@@ -13,7 +13,7 @@ use crate::domain::{
     thread::Thread,
 };
 
-use super::Db;
+use super::{DatabaseError, Db};
 
 #[derive(Clone)]
 pub struct InMemory {
@@ -35,7 +35,7 @@ impl InMemory {
 
 #[ferrochain::async_trait]
 impl Db for InMemory {
-    async fn debug_state(&self) -> Result<serde_json::Value> {
+    async fn debug_state(&self) -> Result<serde_json::Value, DatabaseError> {
         let threads = self.threads.lock().await;
         let messages = self.messages.lock().await;
         let thread_messages = self.thread_messages.lock().await;
@@ -47,7 +47,10 @@ impl Db for InMemory {
         }))
     }
 
-    async fn get_threads_with_embeddings(&self, thread_ids: &[Uuid]) -> Result<Vec<Thread>> {
+    async fn get_threads_with_embeddings(
+        &self,
+        thread_ids: &[Uuid],
+    ) -> Result<Vec<Thread>, DatabaseError> {
         let threads = self.threads.lock().await;
         thread_ids
             .iter()
@@ -68,18 +71,18 @@ impl Db for InMemory {
         thread_id: Uuid,
         summary: String,
         embedding: Embedding,
-    ) -> Result<()> {
+    ) -> Result<(), DatabaseError> {
         let mut threads = self.threads.lock().await;
         if let Some(thread) = threads.get_mut(&thread_id) {
             thread.set_summary(summary);
             thread.set_embedding(embedding);
             Ok(())
         } else {
-            Err(anyhow!("thread not found"))
+            Err(DatabaseError::NotFound)
         }
     }
 
-    async fn create_thread(&self) -> Result<Thread> {
+    async fn create_thread(&self) -> Result<Thread, DatabaseError> {
         let thread = Thread::new();
         let mut threads = self.threads.lock().await;
         threads.insert(thread.id(), thread.clone());
@@ -90,10 +93,10 @@ impl Db for InMemory {
         Ok(thread)
     }
 
-    async fn delete_thread(&self, thread_id: Uuid) -> Result<()> {
+    async fn delete_thread(&self, thread_id: Uuid) -> Result<(), DatabaseError> {
         let mut threads = self.threads.lock().await;
         if threads.remove(&thread_id).is_none() {
-            return Err(anyhow!("thread not found"));
+            return Err(DatabaseError::NotFound);
         }
 
         let mut messages = self.messages.lock().await;
@@ -108,12 +111,16 @@ impl Db for InMemory {
         Ok(())
     }
 
-    async fn create_message(&self, thread_id: Uuid, input: CreateMessage) -> Result<Message> {
+    async fn create_message(
+        &self,
+        thread_id: Uuid,
+        input: CreateMessage,
+    ) -> Result<Message, DatabaseError> {
         self.threads
             .lock()
             .await
             .get(&thread_id)
-            .ok_or_else(|| anyhow!("thread not found"))?;
+            .ok_or(DatabaseError::NotFound)?;
 
         let message = input.into_message(thread_id);
         let message_id = message.id();
@@ -134,33 +141,33 @@ impl Db for InMemory {
         thread_id: Uuid,
         message_id: Uuid,
         content: UpdateMessage,
-    ) -> Result<Message> {
+    ) -> Result<Message, DatabaseError> {
         self.threads
             .lock()
             .await
             .get(&thread_id)
-            .ok_or_else(|| anyhow!("thread not found"))?;
+            .ok_or(DatabaseError::NotFound)?;
 
         let mut messages = self.messages.lock().await;
         let message = messages
             .get_mut(&message_id)
-            .ok_or_else(|| anyhow!("message not found"))?;
+            .ok_or(DatabaseError::NotFound)?;
 
         message.update_content(content);
         Ok(message.clone())
     }
 
-    async fn list_threads(&self) -> Result<Vec<Thread>> {
+    async fn list_threads(&self) -> Result<Vec<Thread>, DatabaseError> {
         let threads = self.threads.lock().await;
         Ok(threads.values().cloned().collect())
     }
 
-    async fn get_thread(&self, thread_id: Uuid) -> Result<Thread> {
+    async fn get_thread(&self, thread_id: Uuid) -> Result<Thread, DatabaseError> {
         let threads = self.threads.lock().await;
         threads
             .get(&thread_id)
             .cloned()
-            .ok_or_else(|| anyhow!("thread not found"))
+            .ok_or(DatabaseError::NotFound)
     }
 
     async fn get_thread_messages(
@@ -168,10 +175,10 @@ impl Db for InMemory {
         thread_id: Uuid,
         limit: Option<usize>,
         offset: Option<usize>,
-    ) -> Result<ThreadMessagesResponse> {
+    ) -> Result<ThreadMessagesResponse, DatabaseError> {
         let threads = self.threads.lock().await;
         if !threads.contains_key(&thread_id) {
-            return Err(anyhow!("thread not found"));
+            return Err(DatabaseError::NotFound);
         }
 
         let thread_messages = self.thread_messages.lock().await;
@@ -203,17 +210,17 @@ impl Db for InMemory {
         })
     }
 
-    async fn delete_message(&self, thread_id: Uuid, message_id: Uuid) -> Result<()> {
+    async fn delete_message(&self, thread_id: Uuid, message_id: Uuid) -> Result<(), DatabaseError> {
         self.threads
             .lock()
             .await
             .get(&thread_id)
-            .ok_or_else(|| anyhow!("thread not found"))?;
+            .ok_or(DatabaseError::NotFound)?;
 
         let mut messages = self.messages.lock().await;
         messages
             .remove(&message_id)
-            .ok_or_else(|| anyhow!("message not found"))?;
+            .ok_or(DatabaseError::NotFound)?;
 
         Ok(())
     }

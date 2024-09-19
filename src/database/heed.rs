@@ -16,7 +16,7 @@ use crate::domain::{
     thread::Thread,
 };
 
-use super::Db;
+use super::{DatabaseError, Db};
 
 pub struct Heed {
     env: Arc<heed::Env>,
@@ -41,34 +41,64 @@ impl Heed {
         (paginated_items, total, offset, limit)
     }
 
-    fn get_thread_with_embedding(&self, rtxn: &heed::RoTxn, id: &Uuid) -> Result<Option<Thread>> {
-        let mut thread = self.threads_db.get(rtxn, &id.to_owned().into())?;
+    fn get_thread_with_embedding(
+        &self,
+        rtxn: &heed::RoTxn,
+        id: &Uuid,
+    ) -> Result<Option<Thread>, DatabaseError> {
+        let mut thread = self
+            .threads_db
+            .get(rtxn, &id.to_owned().into())
+            .map_err(|e| DatabaseError::QueryError(e.to_string()))?;
         if let Some(ref mut thread) = thread {
-            if let Some(embedding) = self.embeddings_db.get(rtxn, &id.to_owned().into())? {
+            if let Some(embedding) = self
+                .embeddings_db
+                .get(rtxn, &id.to_owned().into())
+                .map_err(|e| DatabaseError::QueryError(e.to_string()))?
+            {
                 thread.embedding = Some(embedding);
             }
         }
         Ok(thread)
     }
 
-    fn create_thread_internal(&self, wtxn: &mut heed::RwTxn, thread: &Thread) -> Result<()> {
-        self.threads_db.put(wtxn, &thread.id().into(), thread)?;
+    fn create_thread_internal(
+        &self,
+        wtxn: &mut heed::RwTxn,
+        thread: &Thread,
+    ) -> Result<(), DatabaseError> {
+        self.threads_db
+            .put(wtxn, &thread.id().into(), thread)
+            .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
         self.thread_messages_db
-            .put(wtxn, &thread.id().into(), &Vec::new())?;
+            .put(wtxn, &thread.id().into(), &Vec::new())
+            .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
         let timestamp = chrono::Utc::now().timestamp() as u64;
         self.thread_creation_time_db
-            .put(wtxn, &(timestamp, thread.id()).into(), &())?;
+            .put(wtxn, &(timestamp, thread.id()).into(), &())
+            .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
         Ok(())
     }
 
-    fn delete_thread_internal(&self, wtxn: &mut heed::RwTxn, thread_id: Uuid) -> Result<()> {
-        self.threads_db.delete(wtxn, &thread_id.into())?;
-        self.thread_messages_db.delete(wtxn, &thread_id.into())?;
-        self.embeddings_db.delete(wtxn, &thread_id.into())?;
+    fn delete_thread_internal(
+        &self,
+        wtxn: &mut heed::RwTxn,
+        thread_id: Uuid,
+    ) -> Result<(), DatabaseError> {
+        self.threads_db
+            .delete(wtxn, &thread_id.into())
+            .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
+        self.thread_messages_db
+            .delete(wtxn, &thread_id.into())
+            .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
+        self.embeddings_db
+            .delete(wtxn, &thread_id.into())
+            .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
 
         let message_ids = self
             .thread_messages_db
-            .get(wtxn, &thread_id.into())?
+            .get(wtxn, &thread_id.into())
+            .map_err(|e| DatabaseError::QueryError(e.to_string()))?
             .unwrap_or_default();
         for message_id in message_ids {
             self.delete_message_internal(wtxn, thread_id, message_id)?;
@@ -76,28 +106,36 @@ impl Heed {
 
         if let Some((HeedTimestampUuid((_, id)), _)) = self
             .thread_creation_time_db
-            .get_greater_than_or_equal_to(wtxn, &(0, thread_id).into())?
+            .get_greater_than_or_equal_to(wtxn, &(0, thread_id).into())
+            .map_err(|e| DatabaseError::QueryError(e.to_string()))?
         {
             if id == thread_id {
                 self.thread_creation_time_db
-                    .delete(wtxn, &(0, thread_id).into())?;
+                    .delete(wtxn, &(0, thread_id).into())
+                    .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
             }
         }
 
         Ok(())
     }
 
-    fn create_message_internal(&self, wtxn: &mut heed::RwTxn, message: &Message) -> Result<()> {
+    fn create_message_internal(
+        &self,
+        wtxn: &mut heed::RwTxn,
+        message: &Message,
+    ) -> Result<(), DatabaseError> {
         let thread_id = message.thread_id;
         let message_id = message.id();
 
         self.messages_db
-            .put(wtxn, &(thread_id, message_id).into(), message)?;
+            .put(wtxn, &(thread_id, message_id).into(), message)
+            .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
         self.update_thread_messages(wtxn, thread_id, |ids| ids.push(message_id))?;
 
         let timestamp = message.created_at().timestamp() as u64;
         self.message_creation_time_db
-            .put(wtxn, &(thread_id, timestamp, message_id).into(), &())?;
+            .put(wtxn, &(thread_id, timestamp, message_id).into(), &())
+            .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
 
         Ok(())
     }
@@ -107,18 +145,21 @@ impl Heed {
         wtxn: &mut heed::RwTxn,
         thread_id: Uuid,
         message_id: Uuid,
-    ) -> Result<()> {
+    ) -> Result<(), DatabaseError> {
         self.messages_db
-            .delete(wtxn, &(thread_id, message_id).into())?;
+            .delete(wtxn, &(thread_id, message_id).into())
+            .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
         self.update_thread_messages(wtxn, thread_id, |ids| ids.retain(|&id| id != message_id))?;
 
         if let Some((HeedMessageCreationTimeId((t_id, _, m_id)), _)) = self
             .message_creation_time_db
-            .get_greater_than_or_equal_to(wtxn, &(thread_id, 0, message_id).into())?
+            .get_greater_than_or_equal_to(wtxn, &(thread_id, 0, message_id).into())
+            .map_err(|e| DatabaseError::QueryError(e.to_string()))?
         {
             if t_id == thread_id && m_id == message_id {
                 self.message_creation_time_db
-                    .delete(wtxn, &(thread_id, 0, message_id).into())?;
+                    .delete(wtxn, &(thread_id, 0, message_id).into())
+                    .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
             }
         }
 
@@ -130,68 +171,85 @@ impl Heed {
         wtxn: &mut heed::RwTxn,
         thread_id: Uuid,
         update_fn: F,
-    ) -> Result<()>
+    ) -> Result<(), DatabaseError>
     where
         F: FnOnce(&mut Vec<Uuid>),
     {
         let mut message_ids = self
             .thread_messages_db
-            .get(wtxn, &thread_id.into())?
+            .get(wtxn, &thread_id.into())
+            .map_err(|e| DatabaseError::QueryError(e.to_string()))?
             .unwrap_or_default();
         update_fn(&mut message_ids);
         self.thread_messages_db
-            .put(wtxn, &thread_id.into(), &message_ids)?;
+            .put(wtxn, &thread_id.into(), &message_ids)
+            .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
         Ok(())
     }
 
-    pub fn new(path: &Path, create_databases: bool) -> Result<Self> {
+    pub fn new(path: &Path, create_databases: bool) -> Result<Self, DatabaseError> {
         let env = unsafe {
             EnvOpenOptions::new()
                 .map_size(10 * 1024 * 1024 * 1024) // 10 GB
                 .max_dbs(6)
                 .open(path)
-                .map_err(|e| anyhow::anyhow!("Failed to open Heed environment: {}", e))?
+                .map_err(|e| DatabaseError::ConnectionError(e.to_string()))?
         };
         let env = Arc::new(env);
 
-        let mut wtxn = env.write_txn()?;
+        let mut wtxn = env
+            .write_txn()
+            .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
         let threads_db = if create_databases {
-            env.create_database(&mut wtxn, Some("threads"))?
+            env.create_database(&mut wtxn, Some("threads"))
+                .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?
         } else {
-            env.open_database(&wtxn, Some("threads"))?
-                .ok_or_else(|| anyhow::anyhow!("Threads database not found"))?
+            env.open_database(&wtxn, Some("threads"))
+                .map_err(|e| DatabaseError::QueryError(e.to_string()))?
+                .ok_or_else(|| DatabaseError::NotFound)?
         };
         let messages_db = if create_databases {
-            env.create_database(&mut wtxn, Some("messages"))?
+            env.create_database(&mut wtxn, Some("messages"))
+                .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?
         } else {
-            env.open_database(&wtxn, Some("messages"))?
-                .ok_or_else(|| anyhow::anyhow!("messages database not found"))?
+            env.open_database(&wtxn, Some("messages"))
+                .map_err(|e| DatabaseError::QueryError(e.to_string()))?
+                .ok_or_else(|| DatabaseError::NotFound)?
         };
         let thread_messages_db = if create_databases {
-            env.create_database(&mut wtxn, Some("thread_messages"))?
+            env.create_database(&mut wtxn, Some("thread_messages"))
+                .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?
         } else {
-            env.open_database(&wtxn, Some("thread_messages"))?
-                .ok_or_else(|| anyhow::anyhow!("thread_messages database not found"))?
+            env.open_database(&wtxn, Some("thread_messages"))
+                .map_err(|e| DatabaseError::QueryError(e.to_string()))?
+                .ok_or_else(|| DatabaseError::NotFound)?
         };
         let embeddings_db = if create_databases {
-            env.create_database(&mut wtxn, Some("embeddings"))?
+            env.create_database(&mut wtxn, Some("embeddings"))
+                .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?
         } else {
-            env.open_database(&wtxn, Some("embeddings"))?
-                .ok_or_else(|| anyhow::anyhow!("embeddings database not found"))?
+            env.open_database(&wtxn, Some("embeddings"))
+                .map_err(|e| DatabaseError::QueryError(e.to_string()))?
+                .ok_or_else(|| DatabaseError::NotFound)?
         };
         let thread_creation_time_db = if create_databases {
-            env.create_database(&mut wtxn, Some("thread_creation_time"))?
+            env.create_database(&mut wtxn, Some("thread_creation_time"))
+                .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?
         } else {
-            env.open_database(&wtxn, Some("thread_creation_time"))?
-                .ok_or_else(|| anyhow::anyhow!("thread_creation_time database not found"))?
+            env.open_database(&wtxn, Some("thread_creation_time"))
+                .map_err(|e| DatabaseError::QueryError(e.to_string()))?
+                .ok_or_else(|| DatabaseError::NotFound)?
         };
         let message_creation_time_db = if create_databases {
-            env.create_database(&mut wtxn, Some("message_creation_time"))?
+            env.create_database(&mut wtxn, Some("message_creation_time"))
+                .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?
         } else {
-            env.open_database(&wtxn, Some("message_creation_time"))?
-                .ok_or_else(|| anyhow::anyhow!("message_creation_time database not found"))?
+            env.open_database(&wtxn, Some("message_creation_time"))
+                .map_err(|e| DatabaseError::QueryError(e.to_string()))?
+                .ok_or_else(|| DatabaseError::NotFound)?
         };
-        wtxn.commit()?;
+        wtxn.commit()
+            .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
 
         Ok(Self {
             env,
@@ -207,12 +265,18 @@ impl Heed {
 
 #[ferrochain::async_trait]
 impl Db for Heed {
-    async fn get_threads_with_embeddings(&self, thread_ids: &[Uuid]) -> Result<Vec<Thread>> {
-        let rtxn = self.env.read_txn()?;
+    async fn get_threads_with_embeddings(
+        &self,
+        thread_ids: &[Uuid],
+    ) -> Result<Vec<Thread>, DatabaseError> {
+        let rtxn = self
+            .env
+            .read_txn()
+            .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
         let threads = thread_ids
             .iter()
             .filter_map(|&id| self.get_thread_with_embedding(&rtxn, &id).transpose())
-            .collect::<Result<Vec<Thread>>>()?;
+            .collect::<Result<Vec<Thread>, DatabaseError>>()?;
         Ok(threads)
     }
 
@@ -221,60 +285,104 @@ impl Db for Heed {
         thread_id: Uuid,
         summary: String,
         embedding: Embedding,
-    ) -> Result<()> {
-        let mut wtxn = self.env.write_txn()?;
+    ) -> Result<(), DatabaseError> {
+        let mut wtxn = self
+            .env
+            .write_txn()
+            .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
 
-        if let Some(mut thread) = self.threads_db.get(&wtxn, &thread_id.into())? {
+        if let Some(mut thread) = self
+            .threads_db
+            .get(&wtxn, &thread_id.into())
+            .map_err(|e| DatabaseError::QueryError(e.to_string()))?
+        {
             thread.set_summary(summary);
-            self.threads_db.put(&mut wtxn, &thread_id.into(), &thread)?;
+            self.threads_db
+                .put(&mut wtxn, &thread_id.into(), &thread)
+                .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
         } else {
-            return Err(anyhow::anyhow!("thread not found"));
+            return Err(DatabaseError::NotFound);
         }
 
         self.embeddings_db
-            .put(&mut wtxn, &thread_id.into(), &embedding)?;
+            .put(&mut wtxn, &thread_id.into(), &embedding)
+            .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
 
-        wtxn.commit()?;
+        wtxn.commit()
+            .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
         Ok(())
     }
 
-    async fn create_thread(&self) -> Result<Thread> {
+    async fn create_thread(&self) -> Result<Thread, DatabaseError> {
         let thread = Thread::new();
-        let mut wtxn = self.env.write_txn()?;
+        let mut wtxn = self
+            .env
+            .write_txn()
+            .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
 
         self.create_thread_internal(&mut wtxn, &thread)?;
 
-        if self.threads_db.get(&wtxn, &thread.id().into())?.is_none() {
-            return Err(anyhow::anyhow!("thread not found after insertion"));
+        if self
+            .threads_db
+            .get(&wtxn, &thread.id().into())
+            .map_err(|e| DatabaseError::QueryError(e.to_string()))?
+            .is_none()
+        {
+            return Err(DatabaseError::OperationFailed(
+                "Thread not found after insertion".to_string(),
+            ));
         }
 
-        wtxn.commit()?;
+        wtxn.commit()
+            .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
         Ok(thread)
     }
 
-    async fn delete_thread(&self, thread_id: Uuid) -> Result<()> {
-        let mut wtxn = self.env.write_txn()?;
+    async fn delete_thread(&self, thread_id: Uuid) -> Result<(), DatabaseError> {
+        let mut wtxn = self
+            .env
+            .write_txn()
+            .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
 
-        if self.threads_db.get(&wtxn, &thread_id.into())?.is_some() {
+        if self
+            .threads_db
+            .get(&wtxn, &thread_id.into())
+            .map_err(|e| DatabaseError::QueryError(e.to_string()))?
+            .is_some()
+        {
             self.delete_thread_internal(&mut wtxn, thread_id)?;
-            wtxn.commit()?;
+            wtxn.commit()
+                .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
             Ok(())
         } else {
-            Err(anyhow::anyhow!("thread not found"))
+            Err(DatabaseError::NotFound)
         }
     }
 
-    async fn create_message(&self, thread_id: Uuid, input: CreateMessage) -> Result<Message> {
-        let mut wtxn = self.env.write_txn()?;
+    async fn create_message(
+        &self,
+        thread_id: Uuid,
+        input: CreateMessage,
+    ) -> Result<Message, DatabaseError> {
+        let mut wtxn = self
+            .env
+            .write_txn()
+            .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
 
-        if self.threads_db.get(&wtxn, &thread_id.into())?.is_none() {
-            return Err(anyhow::anyhow!("thread not found"));
+        if self
+            .threads_db
+            .get(&wtxn, &thread_id.into())
+            .map_err(|e| DatabaseError::QueryError(e.to_string()))?
+            .is_none()
+        {
+            return Err(DatabaseError::NotFound);
         }
 
         let message = input.into_message(thread_id);
         self.create_message_internal(&mut wtxn, &message)?;
 
-        wtxn.commit()?;
+        wtxn.commit()
+            .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
         Ok(message)
     }
 
@@ -283,35 +391,51 @@ impl Db for Heed {
         thread_id: Uuid,
         message_id: Uuid,
         content: UpdateMessage,
-    ) -> Result<Message> {
-        let mut wtxn = self.env.write_txn()?;
+    ) -> Result<Message, DatabaseError> {
+        let mut wtxn = self
+            .env
+            .write_txn()
+            .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
 
         if let Some(mut message) = self
             .messages_db
-            .get(&wtxn, &(thread_id, message_id).into())?
+            .get(&wtxn, &(thread_id, message_id).into())
+            .map_err(|e| DatabaseError::QueryError(e.to_string()))?
         {
             message.update_content(content);
             self.messages_db
-                .put(&mut wtxn, &(thread_id, message_id).into(), &message)?;
-            wtxn.commit()?;
+                .put(&mut wtxn, &(thread_id, message_id).into(), &message)
+                .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
+            wtxn.commit()
+                .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
             Ok(message)
         } else {
-            Err(anyhow::anyhow!("message not found"))
+            Err(DatabaseError::NotFound)
         }
     }
 
-    async fn list_threads(&self) -> Result<Vec<Thread>> {
-        let rtxn = self.env.read_txn()?;
-        let threads = self.threads_db.iter(&rtxn)?;
+    async fn list_threads(&self) -> Result<Vec<Thread>, DatabaseError> {
+        let rtxn = self
+            .env
+            .read_txn()
+            .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
+        let threads = self
+            .threads_db
+            .iter(&rtxn)
+            .map_err(|e| DatabaseError::QueryError(e.to_string()))?;
         let threads: Vec<Thread> = threads.flatten().map(|(_, thread)| thread).collect();
         Ok(threads)
     }
 
-    async fn get_thread(&self, thread_id: Uuid) -> Result<Thread> {
-        let rtxn = self.env.read_txn()?;
+    async fn get_thread(&self, thread_id: Uuid) -> Result<Thread, DatabaseError> {
+        let rtxn = self
+            .env
+            .read_txn()
+            .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
         self.threads_db
-            .get(&rtxn, &thread_id.into())?
-            .ok_or_else(|| anyhow::anyhow!("thread not found"))
+            .get(&rtxn, &thread_id.into())
+            .map_err(|e| DatabaseError::QueryError(e.to_string()))?
+            .ok_or(DatabaseError::NotFound)
     }
 
     async fn get_thread_messages(
@@ -319,16 +443,25 @@ impl Db for Heed {
         thread_id: Uuid,
         limit: Option<usize>,
         offset: Option<usize>,
-    ) -> Result<ThreadMessagesResponse> {
-        let rtxn = self.env.read_txn()?;
+    ) -> Result<ThreadMessagesResponse, DatabaseError> {
+        let rtxn = self
+            .env
+            .read_txn()
+            .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
 
-        if self.threads_db.get(&rtxn, &thread_id.into())?.is_none() {
-            return Err(anyhow::anyhow!("thread not found"));
+        if self
+            .threads_db
+            .get(&rtxn, &thread_id.into())
+            .map_err(|e| DatabaseError::QueryError(e.to_string()))?
+            .is_none()
+        {
+            return Err(DatabaseError::NotFound);
         }
 
         let message_ids = self
             .thread_messages_db
-            .get(&rtxn, &thread_id.into())?
+            .get(&rtxn, &thread_id.into())
+            .map_err(|e| DatabaseError::QueryError(e.to_string()))?
             .unwrap_or_default();
 
         let messages: Vec<Message> = message_ids
@@ -336,7 +469,8 @@ impl Db for Heed {
             .filter_map(|&id| {
                 self.messages_db
                     .get(&rtxn, &(thread_id, id).into())
-                    .unwrap()
+                    .ok()
+                    .and_then(|m| m)
             })
             .collect();
 
@@ -351,42 +485,51 @@ impl Db for Heed {
         })
     }
 
-    async fn debug_state(&self) -> Result<serde_json::Value> {
-        let rtxn = self.env.read_txn()?;
+    async fn debug_state(&self) -> Result<serde_json::Value, DatabaseError> {
+        let rtxn = self
+            .env
+            .read_txn()
+            .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
 
         let threads: Vec<(Uuid, Thread)> = self
             .threads_db
-            .iter(&rtxn)?
+            .iter(&rtxn)
+            .map_err(|e| DatabaseError::QueryError(e.to_string()))?
             .flatten()
             .map(|(k, thread)| (k.0, thread))
             .collect();
         let messages: Vec<((Uuid, Uuid), Message)> = self
             .messages_db
-            .iter(&rtxn)?
+            .iter(&rtxn)
+            .map_err(|e| DatabaseError::QueryError(e.to_string()))?
             .flatten()
             .map(|(k, message)| ((k.0 .0, k.0 .1), message))
             .collect();
         let thread_messages: Vec<(Uuid, Vec<Uuid>)> = self
             .thread_messages_db
-            .iter(&rtxn)?
+            .iter(&rtxn)
+            .map_err(|e| DatabaseError::QueryError(e.to_string()))?
             .flatten()
             .map(|(k, v)| (k.0, v))
             .collect();
         let embeddings: Vec<(Uuid, Embedding)> = self
             .embeddings_db
-            .iter(&rtxn)?
+            .iter(&rtxn)
+            .map_err(|e| DatabaseError::QueryError(e.to_string()))?
             .flatten()
             .map(|(k, v)| (k.0, v))
             .collect();
         let thread_creation_times: Vec<(u64, Uuid)> = self
             .thread_creation_time_db
-            .iter(&rtxn)?
+            .iter(&rtxn)
+            .map_err(|e| DatabaseError::QueryError(e.to_string()))?
             .flatten()
             .map(|(k, _)| (k.0 .0, k.0 .1))
             .collect();
         let message_creation_times: Vec<(Uuid, u64, Uuid)> = self
             .message_creation_time_db
-            .iter(&rtxn)?
+            .iter(&rtxn)
+            .map_err(|e| DatabaseError::QueryError(e.to_string()))?
             .flatten()
             .map(|(k, _)| (k.0 .0, k.0 .1, k.0 .2))
             .collect();
@@ -401,19 +544,24 @@ impl Db for Heed {
         }))
     }
 
-    async fn delete_message(&self, thread_id: Uuid, message_id: Uuid) -> Result<()> {
-        let mut wtxn = self.env.write_txn()?;
+    async fn delete_message(&self, thread_id: Uuid, message_id: Uuid) -> Result<(), DatabaseError> {
+        let mut wtxn = self
+            .env
+            .write_txn()
+            .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
 
         if self
             .messages_db
-            .get(&wtxn, &(thread_id, message_id).into())?
+            .get(&wtxn, &(thread_id, message_id).into())
+            .map_err(|e| DatabaseError::QueryError(e.to_string()))?
             .is_some()
         {
             self.delete_message_internal(&mut wtxn, thread_id, message_id)?;
-            wtxn.commit()?;
+            wtxn.commit()
+                .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
             Ok(())
         } else {
-            Err(anyhow::anyhow!("message not found"))
+            Err(DatabaseError::NotFound)
         }
     }
 }

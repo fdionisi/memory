@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 use crate::{
     app_state::AppState,
-    database::Db,
+    database::{error::DatabaseError, Db},
     domain::{
         message::{CreateMessage, UpdateMessage},
         thread::Thread,
@@ -72,7 +72,8 @@ pub async fn get_thread(
 ) -> Result<Json<Thread>, StatusCode> {
     match db.get_thread(thread_id).await {
         Ok(thread) => Ok(Json(thread)),
-        Err(_) => Err(StatusCode::NOT_FOUND),
+        Err(DatabaseError::NotFound) => Err(StatusCode::NOT_FOUND),
+        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
 }
 
@@ -93,10 +94,8 @@ pub async fn get_messages(
             ];
             Ok((headers, Json(response.messages)))
         }
-        Err(e) => match e.to_string().as_str() {
-            "thread not found" => Err(StatusCode::NOT_FOUND),
-            _ => Err(StatusCode::INTERNAL_SERVER_ERROR),
-        },
+        Err(DatabaseError::NotFound) => Err(StatusCode::NOT_FOUND),
+        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
 }
 
@@ -158,9 +157,14 @@ pub async fn create_message(
             }
             (StatusCode::CREATED, Json(message)).into_response()
         }
-        Err(_) => (
+        Err(DatabaseError::NotFound) => (
             StatusCode::NOT_FOUND,
             Json(serde_json::json!({ "error": "thread not found" })),
+        )
+            .into_response(),
+        Err(_) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": "internal server error" })),
         )
             .into_response(),
     }
@@ -176,18 +180,16 @@ pub async fn update_message(
             .await
     ) {
         Ok(message) => (StatusCode::OK, Json(dbg!(message))).into_response(),
-        Err(e) => match dbg!(e.to_string().as_str()) {
-            "thread not found" | "message not found" => (
-                StatusCode::NOT_FOUND,
-                Json(serde_json::json!({ "error": dbg!(e.to_string()) })),
-            )
-                .into_response(),
-            _ => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({ "error": "internal server error" })),
-            )
-                .into_response(),
-        },
+        Err(DatabaseError::NotFound) => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": "thread or message not found" })),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": format!("internal server error: {}", e) })),
+        )
+            .into_response(),
     }
 }
 
@@ -197,13 +199,8 @@ pub async fn delete_message(
 ) -> StatusCode {
     match db.delete_message(thread_id, message_id).await {
         Ok(_) => StatusCode::NO_CONTENT,
-        Err(e) => {
-            dbg!(&e);
-            match e.to_string().as_str() {
-                "thread not found" | "message not found" => StatusCode::NOT_FOUND,
-                _ => StatusCode::INTERNAL_SERVER_ERROR,
-            }
-        }
+        Err(DatabaseError::NotFound) => StatusCode::NOT_FOUND,
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
     }
 }
 
@@ -213,7 +210,8 @@ pub async fn delete_thread(
 ) -> StatusCode {
     match db.delete_thread(thread_id).await {
         Ok(_) => StatusCode::NO_CONTENT,
-        Err(_) => StatusCode::NOT_FOUND,
+        Err(DatabaseError::NotFound) => StatusCode::NOT_FOUND,
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
     }
 }
 
