@@ -301,9 +301,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.17"
+version = "4.5.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e5a21b8495e732f1b3c364c9949b201ca7bae518c502c80256c96ad79eaf6ac"
+checksum = "b0956a43b323ac1afaffc053ed5c4b7c1f1800bacd1683c353aabbb752515dd3"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -311,9 +311,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.17"
+version = "4.5.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8cf2dd12af7a047ad9d6da2b6b249759a22a7abc0f474c1dae1777afa4b21a73"
+checksum = "4d72166dd41634086d5803a47eb71ae740e61d84709c36f3c34110173db3961b"
 dependencies = [
  "anstream",
  "anstyle",
@@ -323,9 +323,9 @@ dependencies = [
 
 [[package]]
 name = "clap_derive"
-version = "4.5.13"
+version = "4.5.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "501d359d5f3dcaf6ecdeee48833ae73ec6e42723a1e52419c79abf9507eec0a0"
+checksum = "4ac6a0c7b1a9e9a5186361f67dfa1b88213572f427fb9ab038efb2bd8c582dab"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -338,22 +338,6 @@ name = "clap_lex"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1462739cb27611015575c0c11df5df7601141071f07518d56fcc1be504cbec97"
-
-[[package]]
-name = "cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "ferrochain-anthropic-completion",
- "ferrochain-voyageai-embedder",
- "heed_database",
- "in_memory_database",
- "memory",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
 
 [[package]]
 name = "colorchoice"
@@ -400,27 +384,6 @@ name = "crossbeam-utils"
 version = "0.8.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "22ec99545bb0ed0ea7bb9b8e1e9122ea386ff8a48c0922e43f36d45ab09e0e80"
-
-[[package]]
-name = "database"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "domain",
- "serde_json",
- "thiserror",
- "uuid",
-]
-
-[[package]]
-name = "domain"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "ferrochain",
- "serde",
- "uuid",
-]
 
 [[package]]
 name = "doxygen-rs"
@@ -724,19 +687,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "heed_database"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "chrono",
- "database",
- "domain",
- "heed",
- "serde_json",
- "uuid",
-]
-
-[[package]]
 name = "hermit-abi"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -896,18 +846,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "in_memory_database"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "database",
- "domain",
- "serde_json",
- "tokio",
- "uuid",
-]
-
-[[package]]
 name = "indexmap"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1015,31 +953,6 @@ name = "memchr"
 version = "2.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "78ca9ab1a0babb1e7d5695e3530886289c18cf2f87ec19a575a0abdce112e3a3"
-
-[[package]]
-name = "memory"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "chrono",
- "database",
- "domain",
- "ferrochain",
- "http-body-util",
- "hyper-util",
- "indoc",
- "mime",
- "serde",
- "serde_json",
- "thiserror",
- "tokio",
- "tower",
- "tower-http",
- "tracing",
- "tracing-subscriber",
- "uuid",
-]
 
 [[package]]
 name = "mime"
@@ -1600,9 +1513,9 @@ dependencies = [
 
 [[package]]
 name = "security-framework-sys"
-version = "2.11.1"
+version = "2.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75da29fe9b9b08fe9d6b22b5b4bcbc75d8db3aa31e639aa56bb62e9d46bfceaf"
+checksum = "ea4a292869320c0272d7bc55a5a6aafaff59b4f63404a003887b679a2e05b4b6"
 dependencies = [
  "core-foundation-sys",
  "libc",
@@ -1779,6 +1692,89 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3dbc01390fc626ce8d1cffe3376ded2b72a11bb70e1c75f404a210e4daa4def2"
 dependencies = [
  "crossbeam-queue",
+]
+
+[[package]]
+name = "synx"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "ferrochain",
+ "http-body-util",
+ "hyper-util",
+ "indoc",
+ "mime",
+ "serde",
+ "serde_json",
+ "synx_database",
+ "synx_domain",
+ "tokio",
+ "tower",
+ "tower-http",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "synx_cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "ferrochain-anthropic-completion",
+ "ferrochain-voyageai-embedder",
+ "synx",
+ "synx_heed_database",
+ "synx_in_memory_database",
+ "tokio",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "synx_database"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "serde_json",
+ "synx_domain",
+ "thiserror",
+ "uuid",
+]
+
+[[package]]
+name = "synx_domain"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "ferrochain",
+ "serde",
+ "uuid",
+]
+
+[[package]]
+name = "synx_heed_database"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "heed",
+ "serde_json",
+ "synx_database",
+ "synx_domain",
+ "uuid",
+]
+
+[[package]]
+name = "synx_in_memory_database"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "serde_json",
+ "synx_database",
+ "synx_domain",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]

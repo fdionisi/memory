@@ -4,9 +4,9 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use ferrochain_anthropic_completion::{AnthropicCompletion, Model};
 use ferrochain_voyageai_embedder::{EmbeddingInputType, EmbeddingModel, VoyageAiEmbedder};
-use heed_database::Heed;
-use in_memory_database::InMemory;
-use memory::Memory;
+use synx::Synx;
+use synx_heed_database::{EnvOpenOptions, SynxHeedDatabase};
+use synx_in_memory_database::SynxInMemory;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[derive(Parser)]
@@ -46,11 +46,20 @@ async fn main() -> Result<()> {
 
     let cli = Cli::parse();
 
-    Memory::builder()
+    Synx::builder()
         .with_db({
             match cli.database {
-                Database::Heed { path } => Arc::new(Heed::new(&path, true)?),
-                Database::InMemory => Arc::new(InMemory::new()),
+                Database::Heed { path } => {
+                    let env = unsafe {
+                        EnvOpenOptions::new()
+                            .map_size(10 * 1024 * 1024 * 1024) // 10 GB
+                            .max_dbs(6)
+                            .open(path)?
+                    };
+
+                    Arc::new(SynxHeedDatabase::new(Arc::new(env), true)?)
+                }
+                Database::InMemory => Arc::new(SynxInMemory::new()),
             }
         })
         .with_document_embedder(Arc::new(

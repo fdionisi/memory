@@ -3,8 +3,8 @@ use std::{
     sync::Arc,
 };
 
-use database::{DatabaseError, Db};
-use domain::{
+use synx_database::{DatabaseError, Db};
+use synx_domain::{
     embedding::Embedding,
     message::{CreateMessage, Message, ThreadMessagesResponse, UpdateMessage},
     thread::Thread,
@@ -13,14 +13,14 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 #[derive(Clone)]
-pub struct InMemory {
+pub struct SynxInMemory {
     threads: Arc<Mutex<HashMap<Uuid, Thread>>>,
     messages: Arc<Mutex<HashMap<Uuid, Message>>>,
     thread_messages: Arc<Mutex<HashMap<Uuid, HashSet<Uuid>>>>,
 }
 
 #[allow(unused)]
-impl InMemory {
+impl SynxInMemory {
     pub fn new() -> Self {
         Self {
             threads: Arc::new(Mutex::new(HashMap::new())),
@@ -31,7 +31,7 @@ impl InMemory {
 }
 
 #[async_trait::async_trait]
-impl Db for InMemory {
+impl Db for SynxInMemory {
     async fn debug_state(&self) -> Result<serde_json::Value, DatabaseError> {
         let threads = self.threads.lock().await;
         let messages = self.messages.lock().await;

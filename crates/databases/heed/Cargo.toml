@@ -1,5 +1,5 @@
 [package]
-name = "heed_database"
+name = "synx_heed_database"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,8 +9,8 @@ path = "src/heed.rs"
 [dependencies]
 async-trait.workspace = true
 chrono.workspace = true
-database.workspace = true
-domain.workspace = true
+synx_database.workspace = true
+synx_domain.workspace = true
 heed = "0.20.5"
 serde_json.workspace = true
 uuid.workspace = true

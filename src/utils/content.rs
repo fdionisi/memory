@@ -1,4 +1,4 @@
-use domain::content::{Content, ContentKind};
+use synx_domain::content::{Content, ContentKind};
 
 pub fn extract_text_content(content: &Content) -> Option<String> {
     match content {

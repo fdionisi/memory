@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use axum::extract::FromRef;
-use database::Db;
 use ferrochain::{completion::Completion, embedding::Embedder};
+use synx_database::Db;
 
 #[derive(Clone)]
 pub struct ApiState {

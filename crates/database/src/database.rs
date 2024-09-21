@@ -1,15 +1,16 @@
 pub mod error;
 
+pub use async_trait::async_trait;
 pub use error::DatabaseError;
 
-use domain::{
+use synx_domain::{
     embedding::Embedding,
     message::{CreateMessage, Message, ThreadMessagesResponse, UpdateMessage},
     thread::Thread,
 };
 use uuid::Uuid;
 
-#[async_trait::async_trait]
+#[async_trait]
 pub trait Db: Send + Sync {
     async fn debug_state(&self) -> Result<serde_json::Value, DatabaseError>;
 

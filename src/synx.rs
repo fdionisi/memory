@@ -5,14 +5,14 @@ mod utils;
 use std::{net::SocketAddr, sync::Arc};
 
 use anyhow::Result;
-use database::Db;
 use ferrochain::{completion::Completion, embedding::Embedder};
+use synx_database::Db;
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
 
 use crate::api_state::ApiState;
 
-pub struct Memory {
+pub struct Synx {
     db: Arc<dyn Db>,
     completion: Arc<dyn Completion>,
     completion_model: String,
@@ -20,7 +20,7 @@ pub struct Memory {
     query_embedder: Arc<dyn Embedder>,
 }
 
-pub struct MemoryBuilder {
+pub struct SynxBuilder {
     db: Option<Arc<dyn Db>>,
     completion: Option<Arc<dyn Completion>>,
     completion_model: Option<String>,
@@ -28,9 +28,9 @@ pub struct MemoryBuilder {
     query_embedder: Option<Arc<dyn Embedder>>,
 }
 
-impl Memory {
-    pub fn builder() -> MemoryBuilder {
-        MemoryBuilder {
+impl Synx {
+    pub fn builder() -> SynxBuilder {
+        SynxBuilder {
             db: None,
             completion: None,
             completion_model: None,
@@ -60,7 +60,7 @@ impl Memory {
     }
 }
 
-impl MemoryBuilder {
+impl SynxBuilder {
     pub fn with_db(mut self, db: Arc<dyn Db>) -> Self {
         self.db = Some(db);
         self
@@ -86,8 +86,8 @@ impl MemoryBuilder {
         self
     }
 
-    pub fn build(self) -> Memory {
-        Memory {
+    pub fn build(self) -> Synx {
+        Synx {
             db: self.db.expect("db is required"),
             completion: self.completion.expect("completion is required"),
             completion_model: self.completion_model.expect("completion_model is required"),

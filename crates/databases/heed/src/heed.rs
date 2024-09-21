@@ -1,21 +1,23 @@
 mod heed_ids;
 
-use std::{path::Path, sync::Arc};
+use std::sync::Arc;
 
-use database::{DatabaseError, Db};
-use domain::{
+use heed::{
+    types::{SerdeJson, Unit},
+    Database,
+};
+pub use heed::{Env, EnvClosingEvent, EnvFlags, EnvInfo, EnvOpenOptions};
+use heed_ids::{HeedMessageCreationTimeId, HeedTimestampUuid, HeedUuid, HeedUuidTuple};
+use synx_database::{DatabaseError, Db};
+use synx_domain::{
     embedding::Embedding,
     message::{CreateMessage, Message, ThreadMessagesResponse, UpdateMessage},
     thread::Thread,
 };
-use heed::{
-    types::{SerdeJson, Unit},
-    Database, EnvOpenOptions,
-};
-use heed_ids::{HeedMessageCreationTimeId, HeedTimestampUuid, HeedUuid, HeedUuidTuple};
 use uuid::Uuid;
 
-pub struct Heed {
+#[derive(Debug)]
+pub struct SynxHeedDatabase {
     env: Arc<heed::Env>,
     threads_db: Database<HeedUuid, SerdeJson<Thread>>,
     messages_db: Database<HeedUuidTuple, SerdeJson<Message>>,
@@ -25,7 +27,7 @@ pub struct Heed {
     message_creation_time_db: Database<HeedMessageCreationTimeId, Unit>,
 }
 
-impl Heed {
+impl SynxHeedDatabase {
     fn apply_pagination<T>(
         items: Vec<T>,
         limit: Option<usize>,
@@ -184,16 +186,7 @@ impl Heed {
         Ok(())
     }
 
-    pub fn new(path: &Path, create_databases: bool) -> Result<Self, DatabaseError> {
-        let env = unsafe {
-            EnvOpenOptions::new()
-                .map_size(10 * 1024 * 1024 * 1024) // 10 GB
-                .max_dbs(6)
-                .open(path)
-                .map_err(|e| DatabaseError::ConnectionError(e.to_string()))?
-        };
-        let env = Arc::new(env);
-
+    pub fn new(env: Arc<Env>, create_databases: bool) -> Result<Self, DatabaseError> {
         let mut wtxn = env
             .write_txn()
             .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
@@ -261,7 +254,7 @@ impl Heed {
 }
 
 #[async_trait::async_trait]
-impl Db for Heed {
+impl Db for SynxHeedDatabase {
     async fn get_threads_with_embeddings(
         &self,
         thread_ids: &[Uuid],

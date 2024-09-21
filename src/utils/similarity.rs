@@ -1,4 +1,4 @@
-use domain::embedding::Embedding;
+use synx_domain::embedding::Embedding;
 
 pub fn cosine_similarity(a: &Embedding, b: &Embedding) -> f32 {
     let a_vec = a.to_vec();

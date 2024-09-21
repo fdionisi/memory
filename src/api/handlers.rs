@@ -6,16 +6,16 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use database::{error::DatabaseError, Db};
-use domain::{
-    message::{CreateMessage, UpdateMessage},
-    thread::Thread,
-};
 use ferrochain::{
     document::{Document, StoredDocument},
     vectorstore::Similarity,
 };
 use serde::{Deserialize, Serialize};
+use synx_database::{error::DatabaseError, Db};
+use synx_domain::{
+    message::{CreateMessage, UpdateMessage},
+    thread::Thread,
+};
 use uuid::Uuid;
 
 use crate::{

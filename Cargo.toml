@@ -1,26 +1,23 @@
 [package]
-name = "memory"
+name = "synx"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-path = "src/memory.rs"
+path = "src/synx.rs"
 
 [dependencies]
 anyhow = "1.0.87"
 axum = "0.7.5"
-chrono.workspace = true
-domain.workspace = true
-database.workspace = true
+synx_domain.workspace = true
+synx_database.workspace = true
 ferrochain.workspace = true
 indoc = "2.0.5"
 serde.workspace = true
 serde_json.workspace = true
-thiserror.workspace = true
 tokio.workspace = true
 tower-http = { version = "0.5.0", features = ["trace"] }
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid.workspace = true
 
 [dev-dependencies]
@@ -47,14 +44,14 @@ members = [
 anyhow = "1.0.87"
 async-trait = "0.1.82"
 chrono = { version = "0.4", features = ["serde"] }
-database = { path = "crates/database" }
-domain = { path = "crates/domain" }
-memory = { path = "." }
-in_memory_database = { path = "crates/databases/in_memory" }
-heed_database = { path = "crates/databases/heed" }
+synx_database = { path = "crates/database" }
 ferrochain = { git = "https://github.com/fdionisi/ferrochain", rev = "52adae995ed13395f5e02e9d06be34465a59a306" }
 serde = { version = "1.0.210", features = ["derive"] }
 serde_json = "1.0"
+synx = { path = "." }
+synx_domain = { path = "crates/domain" }
+synx_heed_database = { path = "crates/databases/heed" }
+synx_in_memory_database = { path = "crates/databases/in_memory" }
 thiserror = "1.0.63"
 tokio = { version = "1.40.0", features = ["full"] }
 uuid = { version = "1.4", features = ["v4", "serde"] }

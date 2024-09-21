@@ -1,20 +1,19 @@
 [package]
-name = "cli"
+name = "synx_cli"
 version = "0.1.0"
 edition = "2021"
 
 [[bin]]
-name = "memory"
+name = "synx"
 path = "src/main.rs"
 
 [dependencies]
 anyhow.workspace = true
 clap = { version = "4.5.17", features = ["derive"] }
-tokio.workspace = true
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-memory.workspace = true
 ferrochain-anthropic-completion = { git = "https://github.com/fdionisi/ferrochain", rev = "52adae995ed13395f5e02e9d06be34465a59a306" }
 ferrochain-voyageai-embedder = { git = "https://github.com/fdionisi/ferrochain", rev = "52adae995ed13395f5e02e9d06be34465a59a306" }
-heed_database.workspace = true
-in_memory_database.workspace = true
+synx.workspace = true
+synx_heed_database.workspace = true
+synx_in_memory_database.workspace = true
+tokio.workspace = true
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
