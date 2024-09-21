@@ -2,11 +2,11 @@ mod heed_ids;
 
 use std::sync::Arc;
 
+pub use heed;
 use heed::{
     types::{SerdeJson, Unit},
-    Database,
+    Database, Env,
 };
-pub use heed::{Env, EnvClosingEvent, EnvFlags, EnvInfo, EnvOpenOptions};
 use heed_ids::{HeedMessageCreationTimeId, HeedTimestampUuid, HeedUuid, HeedUuidTuple};
 use synx_database::{DatabaseError, Db};
 use synx_domain::{
