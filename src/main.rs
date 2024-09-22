@@ -1,13 +1,27 @@
-use std::{net::SocketAddr, path::PathBuf, sync::Arc};
+mod api;
+mod api_state;
+
+use std::{future::Future, path::PathBuf, pin::Pin, sync::Arc};
 
 use anyhow::Result;
+use api_state::ApiState;
 use clap::{Parser, Subcommand};
 use ferrochain_anthropic_completion::{AnthropicCompletion, Model};
 use ferrochain_voyageai_embedder::{EmbeddingInputType, EmbeddingModel, VoyageAiEmbedder};
-use synx::Synx;
+use synx::{executor::Executor, Synx};
 use synx_heed_database::{heed::EnvOpenOptions, SynxHeedDatabase};
 use synx_in_memory_database::SynxInMemory;
+use tokio::net::TcpListener;
+use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+struct TokioExecutor;
+
+impl Executor for TokioExecutor {
+    fn spawn(&self, future: Pin<Box<dyn Future<Output = ()> + Send + 'static>>) {
+        tokio::spawn(future);
+    }
+}
 
 #[derive(Parser)]
 struct Cli {
@@ -46,7 +60,7 @@ async fn main() -> Result<()> {
 
     let cli = Cli::parse();
 
-    Synx::builder()
+    let synx = Synx::builder()
         .with_db({
             match cli.database {
                 Database::Heed { path } => {
@@ -82,7 +96,18 @@ async fn main() -> Result<()> {
                 .expect("Failed to create AnthropicCompletion"),
         ))
         .with_completion_model(Model::ClaudeThreeDotFiveSonnet)
-        .build()
-        .listen(SocketAddr::new(cli.host.parse()?, cli.port))
-        .await
+        .with_executor(Arc::new(TokioExecutor))
+        .build();
+
+    let state = ApiState { synx };
+
+    let listener = TcpListener::bind((cli.host, cli.port)).await?;
+    tracing::debug!("listening on {}", listener.local_addr()?);
+    axum::serve(
+        listener,
+        api::routes::router(state).layer(TraceLayer::new_for_http()),
+    )
+    .await?;
+
+    Ok(())
 }

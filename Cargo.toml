@@ -1,10 +1,14 @@
 [package]
-name = "synx"
+name = "synx-cli"
 version = "0.1.0"
 edition = "2021"
 
-[lib]
-path = "src/synx.rs"
+[[bin]]
+name = "synx"
+path = "src/main.rs"
+
+# [lib]
+# path = "src/synx.rs"
 
 [dependencies]
 anyhow = "1.0.87"
@@ -20,6 +24,15 @@ tower-http = { version = "0.5.0", features = ["trace"] }
 tracing = "0.1"
 uuid.workspace = true
 
+clap = { version = "4.5.17", features = ["derive"] }
+ferrochain-anthropic-completion = { git = "https://github.com/fdionisi/ferrochain", rev = "52adae995ed13395f5e02e9d06be34465a59a306" }
+ferrochain-voyageai-embedder = { git = "https://github.com/fdionisi/ferrochain", rev = "52adae995ed13395f5e02e9d06be34465a59a306" }
+synx = { path = "crates/synx" }
+synx_heed_database.workspace = true
+synx_in_memory_database.workspace = true
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+
 [dev-dependencies]
 http-body-util = "0.1.0"
 mime = "0.3"
@@ -34,10 +47,9 @@ hyper-util = { version = "0.1", features = [
 resolver = "2"
 members = [
     "crates/database",
-    "crates/domain",
     "crates/databases/heed",
     "crates/databases/in_memory",
-    "crates/cli",
+    "crates/domain",
     "crates/synx",
 ]
 

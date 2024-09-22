@@ -1,46 +1,26 @@
-use std::{collections::HashMap, sync::Arc};
-
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
 };
-use ferrochain::{
-    document::{Document, StoredDocument},
-    vectorstore::Similarity,
-};
-use serde::{Deserialize, Serialize};
-use synx_database::{error::DatabaseError, Db};
+use ferrochain::vectorstore::Similarity;
+use synx::{SearchRequest, Synx};
 use synx_domain::{
     message::{CreateMessage, UpdateMessage},
     thread::Thread,
 };
 use uuid::Uuid;
 
-use crate::{
-    api_state::ApiState,
-    utils::{
-        completion::generate_summary, content::extract_text_content,
-        embedding::generate_embeddings, similarity::cosine_similarity,
-    },
-};
-
-#[derive(Deserialize)]
+#[derive(serde::Deserialize)]
 pub struct PaginationParams {
     limit: Option<usize>,
     offset: Option<usize>,
 }
 
-#[derive(Deserialize, Serialize)]
-pub struct SearchRequest {
-    pub query: String,
-    pub thread_ids: Vec<Uuid>,
-}
-
-pub async fn create_thread(State(db): State<Arc<dyn Db>>) -> Result<impl IntoResponse, StatusCode> {
+pub async fn create_thread(State(synx): State<Synx>) -> Result<impl IntoResponse, StatusCode> {
     tracing::info!("Attempting to create a new thread");
-    match db.create_thread().await {
+    match synx.create_thread().await {
         Ok(thread) => {
             tracing::info!("Thread created successfully: {:?}", thread);
             Ok((StatusCode::CREATED, Json(thread)))
@@ -52,9 +32,9 @@ pub async fn create_thread(State(db): State<Arc<dyn Db>>) -> Result<impl IntoRes
     }
 }
 
-pub async fn list_threads(State(db): State<Arc<dyn Db>>) -> Result<Json<Vec<Thread>>, StatusCode> {
+pub async fn list_threads(State(synx): State<Synx>) -> Result<Json<Vec<Thread>>, StatusCode> {
     tracing::info!("Attempting to list threads");
-    match db.list_threads().await {
+    match synx.list_threads().await {
         Ok(threads) => {
             tracing::info!("Successfully retrieved {} threads", threads.len());
             Ok(Json(threads))
@@ -67,23 +47,23 @@ pub async fn list_threads(State(db): State<Arc<dyn Db>>) -> Result<Json<Vec<Thre
 }
 
 pub async fn get_thread(
-    State(db): State<Arc<dyn Db>>,
+    State(synx): State<Synx>,
     Path(thread_id): Path<Uuid>,
 ) -> Result<Json<Thread>, StatusCode> {
-    match db.get_thread(thread_id).await {
+    match synx.get_thread(thread_id).await {
         Ok(thread) => Ok(Json(thread)),
-        Err(DatabaseError::NotFound) => Err(StatusCode::NOT_FOUND),
+        // Err(DatabaseError::NotFound) => Err(StatusCode::NOT_FOUND),
         Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
 }
 
 pub async fn get_messages(
-    State(db): State<Arc<dyn Db>>,
+    State(synx): State<Synx>,
     Path(thread_id): Path<Uuid>,
     Query(params): Query<PaginationParams>,
 ) -> Result<impl IntoResponse, StatusCode> {
-    match db
-        .get_thread_messages(thread_id, params.limit, params.offset)
+    match synx
+        .get_messages(thread_id, params.limit, params.offset)
         .await
     {
         Ok(response) => {
@@ -94,76 +74,23 @@ pub async fn get_messages(
             ];
             Ok((headers, Json(response.messages)))
         }
-        Err(DatabaseError::NotFound) => Err(StatusCode::NOT_FOUND),
+        // Err(DatabaseError::NotFound) => Err(StatusCode::NOT_FOUND),
         Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
 }
 
 pub async fn create_message(
-    State(ApiState {
-        db,
-        document_embedder,
-        completion,
-        completion_model,
-        ..
-    }): State<ApiState>,
+    State(synx): State<Synx>,
     Path(thread_id): Path<Uuid>,
     Json(create_message): Json<CreateMessage>,
 ) -> Response {
-    match db.create_message(thread_id, create_message).await {
-        Ok(message) => {
-            if let Some(text_content) = extract_text_content(&message.content) {
-                let completion_content = text_content.clone();
-                let db_content = db.clone();
-                let message_role = message.role.clone();
-                tokio::spawn(async move {
-                    let thread = match db_content.get_thread(thread_id).await {
-                        Ok(response) => response,
-                        Err(e) => {
-                            tracing::error!("Failed to fetch thread messages: {}", e);
-                            return;
-                        }
-                    };
-
-                    let summary = match generate_summary(
-                        completion,
-                        completion_model,
-                        thread.summary.unwrap_or_default(),
-                        message_role,
-                        completion_content,
-                    )
-                    .await
-                    {
-                        Ok(s) => s,
-                        Err(e) => {
-                            tracing::error!("Failed to generate summary: {}", e);
-                            return;
-                        }
-                    };
-
-                    let embedding = match generate_embeddings(&document_embedder, &summary).await {
-                        Ok(e) => e,
-                        Err(e) => {
-                            tracing::error!("Failed to create embedding: {}", e);
-                            return;
-                        }
-                    };
-
-                    if let Err(e) = db_content
-                        .update_thread_summary_and_embedding(thread_id, summary, embedding)
-                        .await
-                    {
-                        tracing::error!("Failed to update thread summary and embedding: {}", e);
-                    }
-                });
-            }
-            (StatusCode::CREATED, Json(message)).into_response()
-        }
-        Err(DatabaseError::NotFound) => (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({ "error": "thread not found" })),
-        )
-            .into_response(),
+    match synx.create_message(thread_id, create_message).await {
+        Ok(message) => (StatusCode::CREATED, Json(message)).into_response(),
+        // Err(DatabaseError::NotFound) => (
+        //     StatusCode::NOT_FOUND,
+        //     Json(serde_json::json!({ "error": "thread not found" })),
+        // )
+        //     .into_response(),
         Err(_) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "error": "internal server error" })),
@@ -173,20 +100,20 @@ pub async fn create_message(
 }
 
 pub async fn update_message(
-    State(db): State<Arc<dyn Db>>,
+    State(synx): State<Synx>,
     Path((thread_id, message_id)): Path<(Uuid, Uuid)>,
     Json(update_message): Json<UpdateMessage>,
 ) -> Response {
-    match dbg!(
-        db.update_message(dbg!(thread_id), dbg!(message_id), dbg!(update_message))
-            .await
-    ) {
+    match synx
+        .update_message(dbg!(thread_id), dbg!(message_id), dbg!(update_message))
+        .await
+    {
         Ok(message) => (StatusCode::OK, Json(dbg!(message))).into_response(),
-        Err(DatabaseError::NotFound) => (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({ "error": "thread or message not found" })),
-        )
-            .into_response(),
+        // Err(DatabaseError::NotFound) => (
+        //     StatusCode::NOT_FOUND,
+        //     Json(serde_json::json!({ "error": "thread or message not found" })),
+        // )
+        //     .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "error": format!("internal server error: {}", e) })),
@@ -196,32 +123,29 @@ pub async fn update_message(
 }
 
 pub async fn delete_message(
-    State(db): State<Arc<dyn Db>>,
+    State(synx): State<Synx>,
     Path((thread_id, message_id)): Path<(Uuid, Uuid)>,
 ) -> StatusCode {
-    match db.delete_message(thread_id, message_id).await {
+    match synx.delete_message(thread_id, message_id).await {
         Ok(_) => StatusCode::NO_CONTENT,
-        Err(DatabaseError::NotFound) => StatusCode::NOT_FOUND,
+        // Err(DatabaseError::NotFound) => StatusCode::NOT_FOUND,
         Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
     }
 }
 
-pub async fn delete_thread(
-    State(db): State<Arc<dyn Db>>,
-    Path(thread_id): Path<Uuid>,
-) -> StatusCode {
-    match db.delete_thread(thread_id).await {
+pub async fn delete_thread(State(synx): State<Synx>, Path(thread_id): Path<Uuid>) -> StatusCode {
+    match synx.delete_thread(thread_id).await {
         Ok(_) => StatusCode::NO_CONTENT,
-        Err(DatabaseError::NotFound) => StatusCode::NOT_FOUND,
+        // Err(DatabaseError::NotFound) => StatusCode::NOT_FOUND,
         Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
     }
 }
 
 pub async fn debug_database_state(
-    State(db): State<Arc<dyn Db>>,
+    State(synx): State<Synx>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     tracing::info!("Debugging database state");
-    match db.debug_state().await {
+    match synx.debug_state().await {
         Ok(state) => {
             tracing::info!("Database state retrieved successfully");
             Ok(Json(state))
@@ -234,40 +158,11 @@ pub async fn debug_database_state(
 }
 
 pub async fn search_threads(
-    State(ApiState {
-        db, query_embedder, ..
-    }): State<ApiState>,
+    State(synx): State<Synx>,
     Json(search_request): Json<SearchRequest>,
 ) -> Result<Json<Vec<Similarity>>, StatusCode> {
-    let threads = db
-        .get_threads_with_embeddings(&search_request.thread_ids)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let query_embedding = generate_embeddings(&query_embedder, &search_request.query)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let mut similarities: Vec<Similarity> = threads
-        .into_iter()
-        .filter_map(|thread| {
-            thread.embedding.map(|embedding| {
-                let score = cosine_similarity(&query_embedding, &embedding);
-                Similarity {
-                    stored: StoredDocument {
-                        id: thread.id.to_string(),
-                        document: Document {
-                            content: thread.summary.unwrap_or_default(),
-                            metadata: HashMap::new(),
-                        },
-                    },
-                    score,
-                }
-            })
-        })
-        .collect();
-
-    similarities.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
-
-    Ok(Json(similarities))
+    match synx.search_threads(search_request).await {
+        Ok(similarities) => Ok(Json(similarities)),
+        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+    }
 }

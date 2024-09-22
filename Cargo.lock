@@ -1701,52 +1701,44 @@ dependencies = [
  "anyhow",
  "axum",
  "ferrochain",
+ "indoc",
+ "serde",
+ "serde_json",
+ "synx_database",
+ "synx_domain",
+ "tokio",
+ "tower-http",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "synx-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "clap",
+ "ferrochain",
+ "ferrochain-anthropic-completion",
+ "ferrochain-voyageai-embedder",
  "http-body-util",
  "hyper-util",
  "indoc",
  "mime",
  "serde",
  "serde_json",
+ "synx",
  "synx_database",
  "synx_domain",
+ "synx_heed_database",
+ "synx_in_memory_database",
  "tokio",
  "tower",
  "tower-http",
  "tracing",
- "uuid",
-]
-
-[[package]]
-name = "synx1"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "ferrochain",
- "indoc",
- "serde",
- "serde_json",
- "synx_database",
- "synx_domain",
- "tokio",
- "tower-http",
- "tracing",
- "uuid",
-]
-
-[[package]]
-name = "synx_cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "ferrochain-anthropic-completion",
- "ferrochain-voyageai-embedder",
- "synx",
- "synx_heed_database",
- "synx_in_memory_database",
- "tokio",
  "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]
