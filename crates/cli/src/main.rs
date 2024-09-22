@@ -5,7 +5,7 @@ use clap::{Parser, Subcommand};
 use ferrochain_anthropic_completion::{AnthropicCompletion, Model};
 use ferrochain_voyageai_embedder::{EmbeddingInputType, EmbeddingModel, VoyageAiEmbedder};
 use synx::Synx;
-use synx_heed_database::{EnvOpenOptions, SynxHeedDatabase};
+use synx_heed_database::{heed::EnvOpenOptions, SynxHeedDatabase};
 use synx_in_memory_database::SynxInMemory;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 

@@ -1,0 +1,21 @@
+[package]
+name = "synx1"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+path = "src/synx.rs"
+
+[dependencies]
+anyhow = "1.0.87"
+axum = "0.7.5"
+synx_domain.workspace = true
+synx_database.workspace = true
+ferrochain.workspace = true
+indoc = "2.0.5"
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tower-http = { version = "0.5.0", features = ["trace"] }
+tracing = "0.1"
+uuid.workspace = true

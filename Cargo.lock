@@ -1717,6 +1717,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "synx1"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "ferrochain",
+ "indoc",
+ "serde",
+ "serde_json",
+ "synx_database",
+ "synx_domain",
+ "tokio",
+ "tower-http",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "synx_cli"
 version = "0.1.0"
 dependencies = [

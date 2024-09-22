@@ -68,7 +68,7 @@ pub struct UpdateMessage {
     pub content: Content,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct ThreadMessagesResponse {
     pub messages: Vec<Message>,
     pub total: usize,
