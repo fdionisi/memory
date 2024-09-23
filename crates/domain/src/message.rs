@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::content::{Content, ContentKind};
+use crate::content::Content;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Message {
@@ -10,7 +10,7 @@ pub struct Message {
     pub thread_id: Uuid,
     pub role: String,
     pub content: Content,
-    pub created_at: i64,
+    pub created_at: u64,
 }
 
 impl Message {
@@ -23,24 +23,13 @@ impl Message {
     }
 
     pub fn created_at(&self) -> DateTime<Utc> {
-        DateTime::from_timestamp_millis(self.created_at).unwrap()
+        DateTime::from_timestamp_millis(self.created_at as i64).unwrap()
     }
 }
 
 impl ToString for Message {
     fn to_string(&self) -> String {
-        match &self.content {
-            Content::Single(ContentKind::Text { text }) => text.clone(),
-            Content::Multiple(content) => content
-                .iter()
-                .map(|content| match content {
-                    ContentKind::Text { text } => text.clone(),
-                    ContentKind::Image { url } => url.clone(),
-                })
-                .collect::<Vec<String>>()
-                .join("\n"),
-            Content::Single(ContentKind::Image { url }) => url.clone(),
-        }
+        self.content.to_string()
     }
 }
 
@@ -57,7 +46,7 @@ impl CreateMessage {
             thread_id,
             role: self.role,
             content: self.content,
-            created_at: Utc::now().timestamp_millis(),
+            created_at: Utc::now().timestamp_millis() as u64,
         }
     }
 }
