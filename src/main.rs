@@ -5,6 +5,8 @@ use std::{future::Future, path::PathBuf, pin::Pin, sync::Arc};
 
 use anyhow::Result;
 use api_state::ApiState;
+use axum::middleware;
+use axum_auth_api_key::{auth_middleware, ApiKey};
 use clap::{Parser, Subcommand};
 use ferrochain_anthropic_completion::{AnthropicCompletion, Model};
 use ferrochain_voyageai_embedder::{EmbeddingInputType, EmbeddingModel, VoyageAiEmbedder};
@@ -29,6 +31,8 @@ struct Cli {
     host: String,
     #[clap(long, default_value = "3000")]
     port: u16,
+    #[clap(long, env = "SYNX_API_KEY")]
+    api_key: String,
     #[clap(subcommand)]
     database: Database,
 }
@@ -80,22 +84,43 @@ async fn main() -> Result<()> {
             VoyageAiEmbedder::builder()
                 .model(EmbeddingModel::Voyage3)
                 .input_type(EmbeddingInputType::Document)
-                .build()
-                .expect("Failed to create VoyageAiEmbedder"),
+                .build()?,
         ))
         .with_query_embedder(Arc::new(
             VoyageAiEmbedder::builder()
                 .model(EmbeddingModel::Voyage3)
                 .input_type(EmbeddingInputType::Query)
-                .build()
-                .expect("Failed to create VoyageAiEmbedder"),
+                .build()?,
         ))
-        .with_completion(Arc::new(
+        .with_summarizer(Arc::new(
             AnthropicCompletion::builder()
-                .build()
-                .expect("Failed to create AnthropicCompletion"),
+                .with_model(Model::ClaudeThreeDotFiveSonnet)
+                .with_temperature(0.0)
+                .with_system(vec![
+                    indoc::indoc! {"
+                        You are an AI assistant tasked with summarizing conversations. Your goal is to provide
+                        concise yet comprehensive summaries that capture the main points, key ideas, and overall
+                        context of the discussion.
+
+                        Guidelines:
+                        - Be clear, concise, and objective in your summaries.
+                        - Focus on the most important information and key takeaways.
+                        - Maintain the original tone and intent of the conversation.
+                        - Avoid including unnecessary details or tangential information.
+                        - Use neutral language and avoid editorializing.
+                        - Organize the summary in a logical and coherent manner.
+                        - Ensure the summary can stand alone and be understood without the full context.
+
+                        Your summaries should give readers a quick but thorough understanding of the conversation's
+                        content and progression. Adjust your level of detail based on the length and complexity of
+                        the original conversation.
+
+                        You MUST only answer with a conversation summary.
+                        NEVER provide additional information or commentary beyond the conversation's content.
+                    "}.into()
+                ])
+                .build()?,
         ))
-        .with_completion_model(Model::ClaudeThreeDotFiveSonnet)
         .with_executor(Arc::new(TokioExecutor))
         .build();
 
@@ -105,7 +130,12 @@ async fn main() -> Result<()> {
     tracing::debug!("listening on {}", listener.local_addr()?);
     axum::serve(
         listener,
-        api::routes::router(state).layer(TraceLayer::new_for_http()),
+        api::routes::router(state)
+            .route_layer(middleware::from_fn_with_state(
+                cli.api_key.into(),
+                auth_middleware,
+            ))
+            .layer(TraceLayer::new_for_http()),
     )
     .await?;
 

@@ -8,7 +8,7 @@ use ferrochain::{
     completion::Completion,
     document::{Document, StoredDocument},
     embedding::Embedder,
-    futures::FutureExt,
+    futures::{FutureExt, StreamExt},
     vectorstore::Similarity,
 };
 use serde_json::Value;
@@ -22,9 +22,7 @@ use uuid::Uuid;
 
 use crate::{
     executor::Executor,
-    utils::{
-        completion::generate_summary, content::extract_text_content, embedding::generate_embeddings,
-    },
+    utils::{content::extract_text_content, embedding::generate_embeddings},
 };
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -36,8 +34,7 @@ pub struct SearchRequest {
 #[derive(Clone)]
 pub struct Synx {
     db: Arc<dyn Db>,
-    completion: Arc<dyn Completion>,
-    completion_model: String,
+    summarizer: Arc<dyn Completion>,
     document_embedder: Arc<dyn Embedder>,
     query_embedder: Arc<dyn Embedder>,
     executor: Arc<dyn Executor>,
@@ -47,8 +44,7 @@ impl Synx {
     pub fn builder() -> SynxBuilder {
         SynxBuilder {
             db: None,
-            completion: None,
-            completion_model: None,
+            summarizer: None,
             document_embedder: None,
             query_embedder: None,
             executor: None,
@@ -82,11 +78,17 @@ impl Synx {
     pub async fn create_message(&self, thread_id: Uuid, input: CreateMessage) -> Result<Message> {
         let message = self.db.create_message(thread_id, input).await?;
 
-        if let Some(completion_content) = extract_text_content(&message.content) {
+        self.process_new_message(thread_id, message.clone());
+
+        Ok(message)
+    }
+
+    fn process_new_message(&self, thread_id: Uuid, message: Message) {
+        self.executor.spawn({
             let this = self.clone();
-            let message_role = message.role.clone();
-            self.executor.spawn(
-                async move {
+
+            async move {
+                if let Some(completion_content) = extract_text_content(&message.content) {
                     let thread = match this.db.get_thread(thread_id).await {
                         Ok(response) => response,
                         Err(e) => {
@@ -95,14 +97,13 @@ impl Synx {
                         }
                     };
 
-                    let summary = match generate_summary(
-                        this.completion.to_owned(),
-                        this.completion_model.to_owned(),
-                        thread.summary.unwrap_or_default(),
-                        message_role,
-                        completion_content,
-                    )
-                    .await
+                    let summary = match this
+                        .generate_summary(
+                            thread.summary.unwrap_or_default(),
+                            message.role,
+                            completion_content,
+                        )
+                        .await
                     {
                         Ok(s) => s,
                         Err(e) => {
@@ -128,11 +129,49 @@ impl Synx {
                         tracing::error!("Failed to update thread summary and embedding: {}", e);
                     }
                 }
-                .boxed(),
-            );
+            }
+            .boxed()
+        });
+    }
+
+    async fn generate_summary(
+        &self,
+        summary: String,
+        role: String,
+        content: String,
+    ) -> Result<String> {
+        use ferrochain::{
+            completion::StreamEvent,
+            futures::StreamExt,
+            message::{Content, Message},
+        };
+
+        let mut stream = self
+            .summarizer
+            .complete(vec![Message {
+                content: vec!["SUMMARY_PROMPT"
+                    .replace("{{CURRENT_SUMMARY}}", &summary)
+                    .replace("{{ROLE}}", &role)
+                    .replace("{{NEW_MESSAGE}}", &content)
+                    .into()],
+                ..Default::default()
+            }])
+            .await?;
+
+        let mut summary = String::new();
+        while let Some(event) = stream.next().await {
+            match event? {
+                StreamEvent::Start { content, .. } | StreamEvent::Delta { content, .. } => {
+                    match content {
+                        Content::Text { text } => summary.push_str(&text),
+                        Content::Image { .. } => continue,
+                    }
+                }
+                _ => continue,
+            }
         }
 
-        Ok(message)
+        Ok(summary)
     }
 
     pub async fn update_message(
@@ -195,8 +234,7 @@ impl Synx {
 
 pub struct SynxBuilder {
     db: Option<Arc<dyn Db>>,
-    completion: Option<Arc<dyn Completion>>,
-    completion_model: Option<String>,
+    summarizer: Option<Arc<dyn Completion>>,
     document_embedder: Option<Arc<dyn Embedder>>,
     query_embedder: Option<Arc<dyn Embedder>>,
     executor: Option<Arc<dyn Executor>>,
@@ -208,13 +246,8 @@ impl SynxBuilder {
         self
     }
 
-    pub fn with_completion(mut self, completion: Arc<dyn Completion>) -> Self {
-        self.completion = Some(completion);
-        self
-    }
-
-    pub fn with_completion_model(mut self, completion_model: impl ToString) -> Self {
-        self.completion_model = Some(completion_model.to_string());
+    pub fn with_summarizer(mut self, summarizer: Arc<dyn Completion>) -> Self {
+        self.summarizer = Some(summarizer);
         self
     }
 
@@ -236,8 +269,7 @@ impl SynxBuilder {
     pub fn build(self) -> Synx {
         Synx {
             db: self.db.expect("db is required"),
-            completion: self.completion.expect("completion is required"),
-            completion_model: self.completion_model.expect("completion_model is required"),
+            summarizer: self.summarizer.expect("completion is required"),
             document_embedder: self
                 .document_embedder
                 .expect("document_embedder is required"),

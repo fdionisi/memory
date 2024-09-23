@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use ferrochain::{
-    completion::{Completion, CompletionRequest, StreamEvent},
+    completion::{Completion, StreamEvent},
     futures::StreamExt,
     message::{Content, Message},
 };
@@ -46,41 +46,41 @@ const SUMMARY_PROMPT: &str = indoc! {"
     Ensure that no important information is missed and that the summary is clear, concise, and objective.
     "};
 
-pub async fn generate_summary(
-    completion: Arc<dyn Completion>,
-    completion_model: String,
-    summary: String,
-    role: String,
-    content: String,
-) -> Result<String> {
-    let mut stream = completion
-        .complete(CompletionRequest {
-            model: completion_model,
-            system: Some(vec![SUMMARY_SYSTEM_PROMPT.into()]),
-            messages: vec![Message {
-                content: vec![SUMMARY_PROMPT
-                    .replace("{{CURRENT_SUMMARY}}", &summary)
-                    .replace("{{ROLE}}", &role)
-                    .replace("{{NEW_MESSAGE}}", &content)
-                    .into()],
-                ..Default::default()
-            }],
-            temperature: Some(0.2),
-        })
-        .await?;
+// pub async fn generate_summary(
+//     completion: Arc<dyn Completion>,
+//     completion_model: String,
+//     summary: String,
+//     role: String,
+//     content: String,
+// ) -> Result<String> {
+//     let mut stream = completion
+//         .complete(CompletionRequest {
+//             model: completion_model,
+//             system: Some(vec![SUMMARY_SYSTEM_PROMPT.into()]),
+//             messages: vec![Message {
+//                 content: vec![SUMMARY_PROMPT
+//                     .replace("{{CURRENT_SUMMARY}}", &summary)
+//                     .replace("{{ROLE}}", &role)
+//                     .replace("{{NEW_MESSAGE}}", &content)
+//                     .into()],
+//                 ..Default::default()
+//             }],
+//             temperature: Some(0.2),
+//         })
+//         .await?;
 
-    let mut summary = String::new();
-    while let Some(event) = stream.next().await {
-        match event? {
-            StreamEvent::Start { content, .. } | StreamEvent::Delta { content, .. } => {
-                match content {
-                    Content::Text { text } => summary.push_str(&text),
-                    Content::Image { .. } => continue,
-                }
-            }
-            _ => continue,
-        }
-    }
+//     let mut summary = String::new();
+//     while let Some(event) = stream.next().await {
+//         match event? {
+//             StreamEvent::Start { content, .. } | StreamEvent::Delta { content, .. } => {
+//                 match content {
+//                     Content::Text { text } => summary.push_str(&text),
+//                     Content::Image { .. } => continue,
+//                 }
+//             }
+//             _ => continue,
+//         }
+//     }
 
-    Ok(summary)
-}
+//     Ok(summary)
+// }
