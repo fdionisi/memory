@@ -68,6 +68,8 @@ async fn main() -> Result<()> {
         .with_db({
             match cli.database {
                 Database::Heed { path } => {
+                    tokio::fs::create_dir_all(&path).await?;
+
                     let env = unsafe {
                         EnvOpenOptions::new()
                             .map_size(10 * 1024 * 1024 * 1024) // 10 GB
