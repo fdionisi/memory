@@ -2,10 +2,11 @@ use axum::{
     routing::{delete, get, post, put},
     Router,
 };
+use synx::Synx;
 
-use crate::{api::handlers, api_state::ApiState};
+use crate::api::handlers;
 
-pub fn router(app_state: ApiState) -> Router {
+pub fn router(synx: Synx) -> Router {
     Router::new()
         .route("/threads", post(handlers::create_thread))
         .route("/threads", get(handlers::list_threads))
@@ -23,7 +24,5 @@ pub fn router(app_state: ApiState) -> Router {
         )
         .route("/search", post(handlers::search_threads))
         .route("/debug/database", get(handlers::debug_database_state))
-        // This route was added for debugging purposes and should be removed in production
-        .route("/debug/database-state", get(handlers::debug_database_state))
-        .with_state(app_state)
+        .with_state(synx)
 }

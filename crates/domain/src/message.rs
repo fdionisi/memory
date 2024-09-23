@@ -10,8 +10,7 @@ pub struct Message {
     pub thread_id: Uuid,
     pub role: String,
     pub content: Content,
-    #[serde(with = "chrono::serde::ts_milliseconds")]
-    pub created_at: DateTime<Utc>,
+    pub created_at: i64,
 }
 
 impl Message {
@@ -24,7 +23,7 @@ impl Message {
     }
 
     pub fn created_at(&self) -> DateTime<Utc> {
-        self.created_at
+        DateTime::from_timestamp_millis(self.created_at).unwrap()
     }
 }
 
@@ -58,7 +57,7 @@ impl CreateMessage {
             thread_id,
             role: self.role,
             content: self.content,
-            created_at: Utc::now(),
+            created_at: Utc::now().timestamp_millis(),
         }
     }
 }

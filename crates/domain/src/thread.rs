@@ -7,6 +7,7 @@ use crate::embedding::Embedding;
 pub struct Thread {
     pub id: Uuid,
     pub summary: Option<String>,
+    #[serde(skip)]
     pub embedding: Option<Embedding>,
 }
 

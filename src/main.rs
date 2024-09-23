@@ -1,10 +1,8 @@
 mod api;
-mod api_state;
 
 use std::{future::Future, path::PathBuf, pin::Pin, sync::Arc};
 
 use anyhow::Result;
-use api_state::ApiState;
 use axum::middleware;
 use axum_auth_api_key::auth_middleware;
 use clap::{Parser, Subcommand};
@@ -96,7 +94,6 @@ async fn main() -> Result<()> {
         ))
         .with_summarizer(Arc::new(
             AnthropicCompletion::builder()
-                .with_base_url(std::env::var("ANTHROPIC_BASE_URL")?)
                 .with_model(Model::ClaudeThreeDotFiveSonnet)
                 .with_temperature(0.0)
                 .with_system(vec![
@@ -127,13 +124,11 @@ async fn main() -> Result<()> {
         .with_executor(Arc::new(TokioExecutor))
         .build();
 
-    let state = ApiState { synx };
-
     let listener = TcpListener::bind((cli.host, cli.port)).await?;
     tracing::debug!("listening on {}", listener.local_addr()?);
     axum::serve(
         listener,
-        api::routes::router(state)
+        api::routes::router(synx)
             .route_layer(middleware::from_fn_with_state(
                 cli.api_key.into(),
                 auth_middleware,

@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 pub use heed;
 use heed::{
-    types::{SerdeJson, Unit},
+    types::{SerdeBincode, Unit},
     Database, Env,
 };
 use heed_ids::{HeedMessageCreationTimeId, HeedTimestampUuid, HeedUuid, HeedUuidTuple};
@@ -19,10 +19,10 @@ use uuid::Uuid;
 #[derive(Debug)]
 pub struct SynxHeedDatabase {
     env: Arc<heed::Env>,
-    threads_db: Database<HeedUuid, SerdeJson<Thread>>,
-    messages_db: Database<HeedUuidTuple, SerdeJson<Message>>,
-    thread_messages_db: Database<HeedUuid, SerdeJson<Vec<Uuid>>>,
-    embeddings_db: Database<HeedUuid, SerdeJson<Embedding>>,
+    threads_db: Database<HeedUuid, SerdeBincode<Thread>>,
+    messages_db: Database<HeedUuidTuple, SerdeBincode<Message>>,
+    thread_messages_db: Database<HeedUuid, SerdeBincode<Vec<Uuid>>>,
+    embeddings_db: Database<HeedUuid, SerdeBincode<Embedding>>,
     thread_creation_time_db: Database<HeedTimestampUuid, Unit>,
     message_creation_time_db: Database<HeedMessageCreationTimeId, Unit>,
 }
