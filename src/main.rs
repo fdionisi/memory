@@ -6,7 +6,7 @@ use std::{future::Future, path::PathBuf, pin::Pin, sync::Arc};
 use anyhow::Result;
 use api_state::ApiState;
 use axum::middleware;
-use axum_auth_api_key::{auth_middleware, ApiKey};
+use axum_auth_api_key::auth_middleware;
 use clap::{Parser, Subcommand};
 use ferrochain_anthropic_completion::{AnthropicCompletion, Model};
 use ferrochain_voyageai_embedder::{EmbeddingInputType, EmbeddingModel, VoyageAiEmbedder};

@@ -8,7 +8,7 @@ use ferrochain::{
     completion::Completion,
     document::{Document, StoredDocument},
     embedding::Embedder,
-    futures::{FutureExt, StreamExt},
+    futures::FutureExt,
     vectorstore::Similarity,
 };
 use serde_json::Value;
@@ -17,7 +17,7 @@ use synx_domain::{
     message::{CreateMessage, Message, ThreadMessagesResponse, UpdateMessage},
     thread::Thread,
 };
-use utils::similarity::cosine_similarity;
+use utils::{completion::SUMMARY_PROMPT, similarity::cosine_similarity};
 use uuid::Uuid;
 
 use crate::{
@@ -149,7 +149,7 @@ impl Synx {
         let mut stream = self
             .summarizer
             .complete(vec![Message {
-                content: vec!["SUMMARY_PROMPT"
+                content: vec![SUMMARY_PROMPT
                     .replace("{{CURRENT_SUMMARY}}", &summary)
                     .replace("{{ROLE}}", &role)
                     .replace("{{NEW_MESSAGE}}", &content)
