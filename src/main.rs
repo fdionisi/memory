@@ -53,7 +53,7 @@ async fn main() -> Result<()> {
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
                 format!(
-                    "{}=debug,memory=debug,tower_http=debug",
+                    "{}=debug,memory=debug,tower_http=debug,reqwest=debug",
                     env!("CARGO_CRATE_NAME")
                 )
                 .into()
@@ -96,6 +96,7 @@ async fn main() -> Result<()> {
         ))
         .with_summarizer(Arc::new(
             AnthropicCompletion::builder()
+                .with_base_url(std::env::var("ANTHROPIC_BASE_URL")?)
                 .with_model(Model::ClaudeThreeDotFiveSonnet)
                 .with_temperature(0.0)
                 .with_system(vec![

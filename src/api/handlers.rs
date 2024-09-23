@@ -105,10 +105,10 @@ pub async fn update_message(
     Json(update_message): Json<UpdateMessage>,
 ) -> Response {
     match synx
-        .update_message(dbg!(thread_id), dbg!(message_id), dbg!(update_message))
+        .update_message(thread_id, message_id, update_message)
         .await
     {
-        Ok(message) => (StatusCode::OK, Json(dbg!(message))).into_response(),
+        Ok(message) => (StatusCode::OK, Json(message)).into_response(),
         // Err(DatabaseError::NotFound) => (
         //     StatusCode::NOT_FOUND,
         //     Json(serde_json::json!({ "error": "thread or message not found" })),

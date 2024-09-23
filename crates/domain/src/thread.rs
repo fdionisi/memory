@@ -28,6 +28,6 @@ impl Thread {
     }
 
     pub fn set_embedding(&mut self, embedding: Embedding) {
-        self.embedding = Some(dbg!(embedding));
+        self.embedding = Some(embedding);
     }
 }
