@@ -3,7 +3,7 @@ mod api;
 use std::{future::Future, path::PathBuf, pin::Pin, sync::Arc};
 
 use anyhow::Result;
-use axum::middleware;
+use axum::{middleware, routing::get};
 use axum_auth_api_key::auth_middleware;
 use clap::{Parser, Subcommand};
 use ferrochain_anthropic_completion::{AnthropicCompletion, Model};
@@ -133,6 +133,7 @@ async fn main() -> Result<()> {
                 cli.api_key.into(),
                 auth_middleware,
             ))
+            .route("/healthz", get(api::handlers::healthz))
             .layer(TraceLayer::new_for_http()),
     )
     .await?;

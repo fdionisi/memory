@@ -166,3 +166,7 @@ pub async fn search_threads(
         Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
 }
+
+pub async fn healthz() -> StatusCode {
+    StatusCode::OK
+}
