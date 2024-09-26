@@ -8,6 +8,7 @@ pub enum ContentKind {
     },
     Image {
         image: String,
+        #[serde(rename = "mimeType")]
         mime_type: Option<String>,
     },
 }
