@@ -3,8 +3,13 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ContentKind {
-    Text { text: String },
-    Image { url: String },
+    Text {
+        text: String,
+    },
+    Image {
+        image: String,
+        mime_type: Option<String>,
+    },
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -33,7 +38,7 @@ impl ToString for Content {
             .iter()
             .map(|content| match content {
                 ContentKind::Text { text } => text.clone(),
-                ContentKind::Image { url } => url.clone(),
+                ContentKind::Image { image, .. } => image.clone(),
             })
             .collect::<Vec<String>>()
             .join("\n")
