@@ -12,6 +12,7 @@ pub fn router(synx: Synx) -> Router {
         .route("/threads", get(handlers::list_threads))
         .route("/threads/:id", get(handlers::get_thread))
         .route("/threads/:id", delete(handlers::delete_thread))
+        .route("/threads/:id", put(handlers::update_thread))
         .route("/threads/:id/messages", post(handlers::create_message))
         .route("/threads/:id/messages", get(handlers::get_messages))
         .route(

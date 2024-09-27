@@ -15,7 +15,7 @@ use serde_json::Value;
 use synx_database::Db;
 use synx_domain::{
     message::{CreateMessage, Message, ThreadMessagesResponse, UpdateMessage},
-    thread::Thread,
+    thread::{Thread, UpdateThread},
 };
 use utils::{completion::SUMMARY_PROMPT, similarity::cosine_similarity};
 use uuid::Uuid;
@@ -61,6 +61,10 @@ impl Synx {
 
     pub async fn get_thread(&self, thread_id: Uuid) -> Result<Thread> {
         Ok(self.db.get_thread(thread_id).await?)
+    }
+
+    pub async fn update_thread(&self, thread_id: Uuid, update: UpdateThread) -> Result<Thread> {
+        Ok(self.db.update_thread(thread_id, update).await?)
     }
 
     pub async fn get_messages(

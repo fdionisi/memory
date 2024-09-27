@@ -6,7 +6,7 @@ pub use error::DatabaseError;
 use synx_domain::{
     embedding::Embedding,
     message::{CreateMessage, Message, ThreadMessagesResponse, UpdateMessage},
-    thread::Thread,
+    thread::{Thread, UpdateThread},
 };
 use uuid::Uuid;
 
@@ -42,6 +42,12 @@ pub trait Db: Send + Sync {
         message_id: Uuid,
         content: UpdateMessage,
     ) -> Result<Message, DatabaseError>;
+
+    async fn update_thread(
+        &self,
+        thread_id: Uuid,
+        update: UpdateThread,
+    ) -> Result<Thread, DatabaseError>;
 
     async fn list_threads(&self) -> Result<Vec<Thread>, DatabaseError>;
 

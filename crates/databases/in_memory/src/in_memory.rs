@@ -7,7 +7,7 @@ use synx_database::{DatabaseError, Db};
 use synx_domain::{
     embedding::Embedding,
     message::{CreateMessage, Message, ThreadMessagesResponse, UpdateMessage},
-    thread::Thread,
+    thread::{Thread, UpdateThread},
 };
 use tokio::sync::Mutex;
 use uuid::Uuid;
@@ -220,5 +220,19 @@ impl Db for SynxInMemory {
             .ok_or(DatabaseError::NotFound)?;
 
         Ok(())
+    }
+
+    async fn update_thread(
+        &self,
+        thread_id: Uuid,
+        update: UpdateThread,
+    ) -> Result<Thread, DatabaseError> {
+        let mut threads = self.threads.lock().await;
+        if let Some(thread) = threads.get_mut(&thread_id) {
+            thread.set_title(update.title);
+            Ok(thread.clone())
+        } else {
+            Err(DatabaseError::NotFound)
+        }
     }
 }

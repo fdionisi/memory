@@ -12,7 +12,7 @@ use synx_database::{DatabaseError, Db};
 use synx_domain::{
     embedding::Embedding,
     message::{CreateMessage, Message, ThreadMessagesResponse, UpdateMessage},
-    thread::Thread,
+    thread::{Thread, UpdateThread},
 };
 use uuid::Uuid;
 
@@ -399,6 +399,33 @@ impl Db for SynxHeedDatabase {
             wtxn.commit()
                 .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
             Ok(message)
+        } else {
+            Err(DatabaseError::NotFound)
+        }
+    }
+
+    async fn update_thread(
+        &self,
+        thread_id: Uuid,
+        update: UpdateThread,
+    ) -> Result<Thread, DatabaseError> {
+        let mut wtxn = self
+            .env
+            .write_txn()
+            .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
+
+        if let Some(mut thread) = self
+            .threads_db
+            .get(&wtxn, &thread_id.into())
+            .map_err(|e| DatabaseError::QueryError(e.to_string()))?
+        {
+            thread.set_title(update.title);
+            self.threads_db
+                .put(&mut wtxn, &thread_id.into(), &thread)
+                .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
+            wtxn.commit()
+                .map_err(|e| DatabaseError::OperationFailed(e.to_string()))?;
+            Ok(thread)
         } else {
             Err(DatabaseError::NotFound)
         }

@@ -8,7 +8,7 @@ use ferrochain::vectorstore::Similarity;
 use synx::{SearchRequest, Synx};
 use synx_domain::{
     message::{CreateMessage, UpdateMessage},
-    thread::Thread,
+    thread::{Thread, UpdateThread},
 };
 use uuid::Uuid;
 
@@ -51,6 +51,18 @@ pub async fn get_thread(
     Path(thread_id): Path<Uuid>,
 ) -> Result<Json<Thread>, StatusCode> {
     match synx.get_thread(thread_id).await {
+        Ok(thread) => Ok(Json(thread)),
+        // Err(DatabaseError::NotFound) => Err(StatusCode::NOT_FOUND),
+        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+    }
+}
+
+pub async fn update_thread(
+    State(synx): State<Synx>,
+    Path(thread_id): Path<Uuid>,
+    Json(update_thread): Json<UpdateThread>,
+) -> Result<Json<Thread>, StatusCode> {
+    match synx.update_thread(thread_id, update_thread).await {
         Ok(thread) => Ok(Json(thread)),
         // Err(DatabaseError::NotFound) => Err(StatusCode::NOT_FOUND),
         Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
