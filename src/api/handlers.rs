@@ -52,8 +52,10 @@ pub async fn get_thread(
 ) -> Result<Json<Thread>, StatusCode> {
     match synx.get_thread(thread_id).await {
         Ok(thread) => Ok(Json(thread)),
-        // Err(DatabaseError::NotFound) => Err(StatusCode::NOT_FOUND),
-        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+        Err(e) => {
+            tracing::error!("Failed to get thread {}: {:?}", thread_id, e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
     }
 }
 
@@ -64,8 +66,10 @@ pub async fn update_thread(
 ) -> Result<Json<Thread>, StatusCode> {
     match synx.update_thread(thread_id, update_thread).await {
         Ok(thread) => Ok(Json(thread)),
-        // Err(DatabaseError::NotFound) => Err(StatusCode::NOT_FOUND),
-        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+        Err(e) => {
+            tracing::error!("Failed to update thread {}: {:?}", thread_id, e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
     }
 }
 
@@ -86,8 +90,10 @@ pub async fn get_messages(
             ];
             Ok((headers, Json(response.messages)))
         }
-        // Err(DatabaseError::NotFound) => Err(StatusCode::NOT_FOUND),
-        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+        Err(e) => {
+            tracing::error!("Failed to get messages for thread {}: {:?}", thread_id, e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
     }
 }
 
@@ -98,16 +104,14 @@ pub async fn create_message(
 ) -> Response {
     match synx.create_message(thread_id, create_message).await {
         Ok(message) => (StatusCode::CREATED, Json(message)).into_response(),
-        // Err(DatabaseError::NotFound) => (
-        //     StatusCode::NOT_FOUND,
-        //     Json(serde_json::json!({ "error": "thread not found" })),
-        // )
-        //     .into_response(),
-        Err(_) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({ "error": "internal server error" })),
-        )
-            .into_response(),
+        Err(e) => {
+            tracing::error!("Failed to create message in thread {}: {:?}", thread_id, e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": "internal server error" })),
+            )
+                .into_response()
+        }
     }
 }
 
@@ -121,16 +125,19 @@ pub async fn update_message(
         .await
     {
         Ok(message) => (StatusCode::OK, Json(message)).into_response(),
-        // Err(DatabaseError::NotFound) => (
-        //     StatusCode::NOT_FOUND,
-        //     Json(serde_json::json!({ "error": "thread or message not found" })),
-        // )
-        //     .into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({ "error": format!("internal server error: {}", e) })),
-        )
-            .into_response(),
+        Err(e) => {
+            tracing::error!(
+                "Failed to update message {} in thread {}: {:?}",
+                message_id,
+                thread_id,
+                e
+            );
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": format!("internal server error: {}", e) })),
+            )
+                .into_response()
+        }
     }
 }
 
@@ -140,16 +147,25 @@ pub async fn delete_message(
 ) -> StatusCode {
     match synx.delete_message(thread_id, message_id).await {
         Ok(_) => StatusCode::NO_CONTENT,
-        // Err(DatabaseError::NotFound) => StatusCode::NOT_FOUND,
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        Err(e) => {
+            tracing::error!(
+                "Failed to delete message {} in thread {}: {:?}",
+                message_id,
+                thread_id,
+                e
+            );
+            StatusCode::INTERNAL_SERVER_ERROR
+        }
     }
 }
 
 pub async fn delete_thread(State(synx): State<Synx>, Path(thread_id): Path<Uuid>) -> StatusCode {
     match synx.delete_thread(thread_id).await {
         Ok(_) => StatusCode::NO_CONTENT,
-        // Err(DatabaseError::NotFound) => StatusCode::NOT_FOUND,
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        Err(e) => {
+            tracing::error!("Failed to delete thread {}: {:?}", thread_id, e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        }
     }
 }
 
@@ -175,7 +191,10 @@ pub async fn search_threads(
 ) -> Result<Json<Vec<Similarity>>, StatusCode> {
     match synx.search_threads(search_request).await {
         Ok(similarities) => Ok(Json(similarities)),
-        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+        Err(e) => {
+            tracing::error!("Failed to search threads: {:?}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
     }
 }
 

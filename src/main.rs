@@ -40,6 +40,8 @@ enum Database {
     Heed {
         #[clap(long)]
         path: PathBuf,
+        #[clap(long, default_value = "false")]
+        regenerate: bool,
     },
     #[default]
     InMemory,
@@ -65,8 +67,12 @@ async fn main() -> Result<()> {
     let synx = Synx::builder()
         .with_db({
             match cli.database {
-                Database::Heed { path } => {
+                Database::Heed { path, regenerate } => {
                     tokio::fs::create_dir_all(&path).await?;
+                    if regenerate {
+                        tokio::fs::remove_dir_all(&path).await?;
+                        tokio::fs::create_dir_all(&path).await?;
+                    }
 
                     let env = unsafe {
                         EnvOpenOptions::new()
