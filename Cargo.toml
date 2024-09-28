@@ -25,8 +25,8 @@ tower-http = { version = "0.5.0", features = ["trace"] }
 tracing = "0.1"
 uuid.workspace = true
 clap = { version = "4.5.17", features = ["derive", "env"] }
-ferrochain-anthropic-completion = { git = "https://github.com/fdionisi/ferrochain", rev = "4fdd2a1bd00b560c3701abfcd785290223d417d6" }
-ferrochain-voyageai-embedder = { git = "https://github.com/fdionisi/ferrochain", rev = "4fdd2a1bd00b560c3701abfcd785290223d417d6" }
+ferrochain-anthropic-completion = { git = "https://github.com/fdionisi/ferrochain", rev = "f4f271f346b5fff78cc198772d6a2cbad2f3a89f" }
+ferrochain-voyageai-embedder = { git = "https://github.com/fdionisi/ferrochain", rev = "f4f271f346b5fff78cc198772d6a2cbad2f3a89f" }
 synx = { path = "crates/synx" }
 synx_heed_database.workspace = true
 synx_in_memory_database.workspace = true
@@ -58,7 +58,7 @@ anyhow = "1.0.87"
 async-trait = "0.1.82"
 chrono = { version = "0.4", features = ["serde"] }
 synx_database = { path = "crates/database" }
-ferrochain = { git = "https://github.com/fdionisi/ferrochain", rev = "4fdd2a1bd00b560c3701abfcd785290223d417d6" }
+ferrochain = { git = "https://github.com/fdionisi/ferrochain", rev = "f4f271f346b5fff78cc198772d6a2cbad2f3a89f" }
 serde = { version = "1.0.210", features = ["derive"] }
 serde_json = "1.0"
 synx_domain = { path = "crates/domain" }

@@ -100,29 +100,14 @@ async fn main() -> Result<()> {
         ))
         .with_summarizer(Arc::new(
             AnthropicCompletion::builder()
-                .with_model(Model::ClaudeThreeDotFiveSonnet)
+                .with_model(Model::ClaudeThreeHaiku)
                 .with_temperature(0.0)
+                .with_max_tokens(1024)
                 .with_system(vec![
                     indoc::indoc! {"
-                        You are an AI assistant tasked with summarizing conversations. Your goal is to provide
-                        concise yet comprehensive summaries that capture the main points, key ideas, and overall
-                        context of the discussion.
+                        You are an AI assistant tasked with summarizing conversations from the user perspective.
 
-                        Guidelines:
-                        - Be clear, concise, and objective in your summaries.
-                        - Focus on the most important information and key takeaways.
-                        - Maintain the original tone and intent of the conversation.
-                        - Avoid including unnecessary details or tangential information.
-                        - Use neutral language and avoid editorializing.
-                        - Organize the summary in a logical and coherent manner.
-                        - Ensure the summary can stand alone and be understood without the full context.
-
-                        Your summaries should give readers a quick but thorough understanding of the conversation's
-                        content and progression. Adjust your level of detail based on the length and complexity of
-                        the original conversation.
-
-                        You MUST only answer with a conversation summary.
-                        NEVER provide additional information or commentary beyond the conversation's content.
+                        The summaries you provide will be used to NLP-search, so they should always include comprehensive information regarding the conversation and using an adequate style, easy to search.
                     "}.into()
                 ])
                 .build()?,
